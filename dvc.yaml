@@ -26,6 +26,13 @@ stages:
     outs:
       - data/processed/processed_features.csv
       - models/trained_models/scaler.pkl
+  generate_labels:
+    cmd: python src/generate_labels.py processed_features.csv labels.csv
+    deps:
+      - src/generate_labels.py
+      - data/processed/processed_features.csv
+    outs:
+      - data/processed/labels.csv
 
   train:
     cmd: python src/train.py params.yaml
@@ -33,6 +40,9 @@ stages:
       - src/train.py
       - src/model.py
       - data/processed/processed_features.csv
+      - data/processed/labels.csv
+      - src/config.py
+      - src/generate_labels.py
     params:
       - model
     outs:

@@ -101,11 +101,11 @@ def evaluate_model(model_path, config_file='params.yaml'):
     
     print(f"Test samples: {len(X_test)}")
     
-    # Create dataset
+
     seq_len = config['model'].get('seq_len', 10)
     test_dataset = WaterQualityDataset(X_test, y_test, seq_len=seq_len)
     
-    # Load model
+   
     print("\nLoading model...")
     checkpoint = torch.load(model_path, map_location=device)
     
@@ -124,7 +124,7 @@ def evaluate_model(model_path, config_file='params.yaml'):
     
     print("✓ Model loaded successfully")
     
-    # Make predictions
+ 
     print("\nMaking predictions...")
     predictions = []
     actuals = []
@@ -132,7 +132,7 @@ def evaluate_model(model_path, config_file='params.yaml'):
     with torch.no_grad():
         for i in range(len(test_dataset)):
             x, y_true = test_dataset[i]
-            x = x.unsqueeze(1).to(device)  # [seq, 1, features]
+            x = x.unsqueeze(1).to(device)  
             
             y_pred = model(x)
             
