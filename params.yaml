@@ -5,10 +5,16 @@ data:
   random_state: 42
 
 model:
-  type: "linear_regression"  # or "transformer"
-  learning_rate: 0.001
-  epochs: 100
-  batch_size: 32
+  type: "hydrotransnet"
+  seq_len: 5                    # Reduced from 10
+  d_model: 64                   # Reduced from 128
+  nhead: 4                      # Reduced from 8
+  num_encoder_layers: 2         # Reduced from 4
+  dim_feedforward: 256          # Reduced from 512
+  dropout: 0.1
+  learning_rate: 0.001          # Increased from 0.0001
+  epochs: 50                    # Reduced from 100
+  batch_size: 4                 # Reduced from 32
 
 preprocessing:
   scale_features: true
