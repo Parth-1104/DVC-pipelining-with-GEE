@@ -1,0 +1,7 @@
+earthengine-api 
+geemap
+pandas 
+numpy 
+scikit-learn 
+pyyaml 
+dvc
