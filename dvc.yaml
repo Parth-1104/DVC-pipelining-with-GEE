@@ -1,0 +1,25 @@
+stages:
+  fetch_data:
+    cmd: python src/fetch_data.py 2024-01-01 2024-10-25 sentinel2_raw.csv
+    deps:
+      - src/fetch_data.py
+      - src/config.py
+    outs:
+      - data/raw/sentinel2_raw.csv
+
+  validate_data:
+    cmd: python src/validate_data.py sentinel2_raw.csv sentinel2_validated.csv
+    deps:
+      - src/validate_data.py
+      - data/raw/sentinel2_raw.csv
+    outs:
+      - data/raw/sentinel2_validated.csv
+
+  preprocess:
+    cmd: python src/preprocess.py sentinel2_validated.csv processed_features.csv scaler.pkl
+    deps:
+      - src/preprocess.py
+      - data/raw/sentinel2_validated.csv
+    outs:
+      - data/processed/processed_features.csv
+      - models/trained_models/scaler.pkl

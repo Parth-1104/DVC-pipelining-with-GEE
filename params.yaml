@@ -1,0 +1,15 @@
+data:
+  start_date: "2024-01-01"
+  end_date: "2024-10-25"
+  test_size: 0.2
+  random_state: 42
+
+model:
+  type: "linear_regression"  # or "transformer"
+  learning_rate: 0.001
+  epochs: 100
+  batch_size: 32
+
+preprocessing:
+  scale_features: true
+  engineer_indices: true
