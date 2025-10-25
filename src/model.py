@@ -51,13 +51,13 @@ class HydroTransNet(nn.Module):
         
         self.d_model = d_model
         
-        # Input embedding layer
+        
         self.embedding = nn.Linear(input_dim, d_model)
         
-        # Positional encoding
+       
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         
-        # Transformer encoder
+       
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
@@ -68,7 +68,7 @@ class HydroTransNet(nn.Module):
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
         
-        # Output layers
+        
         self.fc1 = nn.Linear(d_model, 128)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
@@ -92,16 +92,16 @@ class HydroTransNet(nn.Module):
         Returns:
             Output tensor of shape [batch_size, output_dim]
         """
-        # Embed input
+        
         src = self.embedding(src) * math.sqrt(self.d_model)
         
-        # Add positional encoding
+        
         src = self.pos_encoder(src)
         
-        # Pass through transformer encoder
+       
         output = self.transformer_encoder(src, src_mask)
         
-        # Take the last time step
+       
         output = output[-1, :, :]
         
         # Pass through output layers

@@ -9,7 +9,7 @@ import sys
 from config import *
 
 
-PROJECT_ID = 'ee-singhparth427'  # Replace with your actual project ID
+PROJECT_ID = 'ee-singhparth427'  
 ee.Initialize(project=PROJECT_ID)
 
 def fetch_sentinel2_timeseries(start_date, end_date, roi_coords):
@@ -24,17 +24,17 @@ def fetch_sentinel2_timeseries(start_date, end_date, roi_coords):
     Returns:
         pandas DataFrame with spectral bands and dates
     """
-    # Define region of interest
+   
     roi = ee.Geometry.Polygon(roi_coords)
     
-    # Get Sentinel-2 image collection
+   
     collection = ee.ImageCollection(SENTINEL_COLLECTION) \
         .filterBounds(roi) \
         .filterDate(start_date, end_date) \
         .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', MAX_CLOUD_COVER)) \
         .select(BANDS)
     
-    # Get collection size
+    
     count = collection.size().getInfo()
     print(f"Found {count} images in the date range")
     
@@ -42,7 +42,7 @@ def fetch_sentinel2_timeseries(start_date, end_date, roi_coords):
         print("No images found. Check your date range and location.")
         return pd.DataFrame()
     
-    # Convert to list
+    
     image_list = collection.toList(count)
     
     data_records = []
@@ -51,10 +51,10 @@ def fetch_sentinel2_timeseries(start_date, end_date, roi_coords):
         try:
             image = ee.Image(image_list.get(i))
             
-            # Get image date
+            
             date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd').getInfo()
             
-            # Calculate mean values for the ROI
+            
             stats = image.reduceRegion(
                 reducer=ee.Reducer.mean(),
                 geometry=roi,
@@ -62,7 +62,7 @@ def fetch_sentinel2_timeseries(start_date, end_date, roi_coords):
                 maxPixels=1e9
             ).getInfo()
             
-            # Scale reflectance values
+            
             record = {
                 'date': date,
                 'B2_Blue': stats.get('B2', None) / 10000 if stats.get('B2') else None,
@@ -103,7 +103,7 @@ def main(start_date, end_date, output_file):
 
 
 if __name__ == "__main__":
-    # Default: fetch last 6 months of data
+    
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
     

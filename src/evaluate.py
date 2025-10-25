@@ -83,19 +83,19 @@ def plot_residuals(y_true, y_pred, save_path):
 def evaluate_model(model_path, config_file='params.yaml'):
     """Evaluate the trained model"""
     
-    # Load configuration
+    
     with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
     
-    # Set device
+  
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # Load data
+    
     print("Loading data...")
     X, y = load_data('processed_features.csv', 'labels.csv')
     
-    # Use test split
+    
     split_idx = int(len(X) * (1 - config['data']['test_size']))
     X_test, y_test = X[split_idx:], y[split_idx:]
     
