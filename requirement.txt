@@ -5,3 +5,5 @@ numpy
 scikit-learn 
 pyyaml 
 dvc
+pandas
+sklearn
