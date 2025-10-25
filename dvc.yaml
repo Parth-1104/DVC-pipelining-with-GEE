@@ -1,9 +1,12 @@
 stages:
   fetch_data:
-    cmd: python src/fetch_data.py 2024-01-01 2024-10-25 sentinel2_raw.csv
+    cmd: python src/fetch_data.py ${data.start_date} ${data.end_date} sentinel2_raw.csv
     deps:
       - src/fetch_data.py
       - src/config.py
+    params:
+      - data.start_date
+      - data.end_date
     outs:
       - data/raw/sentinel2_raw.csv
 
@@ -23,3 +26,27 @@ stages:
     outs:
       - data/processed/processed_features.csv
       - models/trained_models/scaler.pkl
+
+  train:
+    cmd: python src/train.py params.yaml
+    deps:
+      - src/train.py
+      - src/model.py
+      - data/processed/processed_features.csv
+    params:
+      - model
+    outs:
+      - models/trained_models/best_model.pt
+      - models/trained_models/training_history.pkl
+
+  evaluate:
+    cmd: python src/evaluate.py params.yaml
+    deps:
+      - src/evaluate.py
+      - models/trained_models/best_model.pt
+      - data/processed/processed_features.csv
+    outs:
+      - models/trained_models/evaluation_metrics.pkl
+      - models/trained_models/predictions.png
+      - models/trained_models/residuals.png
+      - models/trained_models/test_predictions.csv
