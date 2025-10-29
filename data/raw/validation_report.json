@@ -1,0 +1,12 @@
+{
+  "total_records": 47,
+  "missing_values": {
+    "date": 0,
+    "B2_Blue": 0,
+    "B3_Green": 0,
+    "B4_Red": 0,
+    "B8_NIR": 0
+  },
+  "date_range": "2024-02-23 00:00:00 to 2024-10-20 00:00:00",
+  "duplicates": 21
+}

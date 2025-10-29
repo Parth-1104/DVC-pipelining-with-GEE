@@ -60,3 +60,13 @@ stages:
       - models/trained_models/predictions.png
       - models/trained_models/residuals.png
       - models/trained_models/test_predictions.csv
+
+  predict:
+    cmd: python src/predict.py
+    deps:
+      - src/predict.py
+      - src/model.py
+      - models/trained_models/best_model.pt
+      - data/processed/processed_features.csv
+    outs:
+      - models/trained_models/new_predictions.csv

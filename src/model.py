@@ -5,6 +5,29 @@ Based on HydroTransNet architecture (2025)
 import torch
 import torch.nn as nn
 import math
+# At the top
+import mlflow
+import mlflow.pytorch
+
+def log_model_to_mlflow(model, params, metrics, model_name="HydroTransNet", run_name=None):
+    """
+    Log the trained PyTorch model, parameters and metrics to MLflow
+    Args:
+        model: PyTorch model instance
+        params: dict of hyperparameters (config)
+        metrics: dict of performance metrics
+        model_name: name of the model
+        run_name: name for the MLflow run, optional
+    """
+    with mlflow.start_run(run_name=run_name):
+        # Log parameters
+        mlflow.log_params(params)
+        # Log metrics
+        mlflow.log_metrics(metrics)
+        # Log model
+        mlflow.pytorch.log_model(model, model_name)
+        print(f"Model and metrics logged to MLflow with run: {mlflow.active_run().info.run_id}")
+
 
 
 class PositionalEncoding(nn.Module):

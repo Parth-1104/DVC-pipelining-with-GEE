@@ -13,7 +13,9 @@ import sys
 import os
 from tqdm import tqdm
 from config import *
-from model import HydroTransNet, count_parameters
+from model import HydroTransNet, count_parameters, log_model_to_mlflow
+
+
 
 
 class WaterQualityDataset(Dataset):
@@ -109,47 +111,28 @@ def validate(model, dataloader, criterion, device):
     return total_loss / len(dataloader)
 
 
+
+
 def main(config_file='params.yaml'):
     """Main training function"""
-    
-    # Load configuration
     with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
-    
-    # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    
-    # Load data
+
     print("Loading data...")
     X, y = load_data('processed_features.csv', 'labels.csv')
-    
-    # Split into train/val
     split_idx = int(len(X) * (1 - config['data']['test_size']))
     X_train, X_val = X[:split_idx], X[split_idx:]
     y_train, y_val = y[:split_idx], y[split_idx:]
-    
     print(f"Train samples: {len(X_train)}, Val samples: {len(X_val)}")
-    
-    # Create datasets and dataloaders
+
     seq_len = config['model'].get('seq_len', 10)
     train_dataset = WaterQualityDataset(X_train, y_train, seq_len=seq_len)
     val_dataset = WaterQualityDataset(X_val, y_val, seq_len=seq_len)
-    
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=config['model']['batch_size'],
-        shuffle=True,
-        num_workers=0  # Changed from 2 to 0 for CPU
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=config['model']['batch_size'],
-        shuffle=False,
-        num_workers=0  # Changed from 2 to 0 for CPU
-    )
-    
-    # Initialize model
+    train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False, num_workers=0)
+
     print("\nInitializing model...")
     model = HydroTransNet(
         input_dim=X.shape[1],
@@ -160,62 +143,40 @@ def main(config_file='params.yaml'):
         dropout=config['model'].get('dropout', 0.1),
         output_dim=y.shape[1]
     ).to(device)
-    
     print(f"Model parameters: {count_parameters(model):,}")
-    
-    # Loss and optimizer
+
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
         model.parameters(),
         lr=config['model']['learning_rate'],
         weight_decay=1e-5
     )
-    
-    # Learning rate scheduler (FIXED - removed verbose parameter)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
-    
-    # Training loop
+
     print("\nStarting training...")
     best_val_loss = float('inf')
     patience = 0
     max_patience = 15
-    
-    history = {
-        'train_loss': [],
-        'val_loss': []
-    }
-    
+    history = {'train_loss': [], 'val_loss': []}
+
     for epoch in range(config['model']['epochs']):
         print(f"\nEpoch {epoch+1}/{config['model']['epochs']}")
-        
-        # Train
         train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
-        
-        # Validate
         val_loss = validate(model, val_loader, criterion, device)
-        
-        # Update scheduler
         current_lr = optimizer.param_groups[0]['lr']
         scheduler.step(val_loss)
         new_lr = optimizer.param_groups[0]['lr']
-        
-        # Manual verbose output for LR change
         if new_lr < current_lr:
             print(f"Learning rate reduced: {current_lr:.6f} -> {new_lr:.6f}")
-        
-        # Save history
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
-        
         print(f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}")
-        
-        # Save best model
+
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience = 0
-            
             model_path = os.path.join(MODELS_DIR, 'best_model.pt')
             torch.save({
                 'epoch': epoch,
@@ -230,17 +191,38 @@ def main(config_file='params.yaml'):
             if patience >= max_patience:
                 print(f"\nEarly stopping at epoch {epoch+1}")
                 break
-    
-    # Save training history
+
+    # --- MLflow logging (add after training) ---
+    params = {
+        "input_dim": X.shape[1],
+        "d_model": config['model'].get('d_model', 128),
+        "nhead": config['model'].get('nhead', 8),
+        "num_encoder_layers": config['model'].get('num_encoder_layers', 4),
+        "dim_feedforward": config['model'].get('dim_feedforward', 512),
+        "dropout": config['model'].get('dropout', 0.1),
+        "output_dim": y.shape[1],
+        "learning_rate": config['model']['learning_rate'],
+        "batch_size": config['model']['batch_size'],
+        "epochs": config['model']['epochs'],
+    }
+    metrics = {
+        "best_val_loss": best_val_loss,
+        "final_train_loss": history['train_loss'][-1] if history['train_loss'] else None,
+        "final_val_loss": history['val_loss'][-1] if history['val_loss'] else None,
+        "early_stopped": patience >= max_patience
+    }
+    # reload best model for logging artifact to mlflow
+    model.load_state_dict(torch.load(model_path)['model_state_dict'])
+    log_model_to_mlflow(model, params, metrics, model_name="HydroTransNet", run_name="WaterQualityTransformer")
+
     history_path = os.path.join(MODELS_DIR, 'training_history.pkl')
     with open(history_path, 'wb') as f:
         pickle.dump(history, f)
-    
     print(f"\n✓ Training complete! Best val loss: {best_val_loss:.6f}")
     print(f"✓ Model saved to: {model_path}")
-
-
 
 if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'params.yaml'
     main(config_file)
+
+

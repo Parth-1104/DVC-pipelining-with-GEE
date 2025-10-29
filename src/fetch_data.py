@@ -6,7 +6,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 import sys
-from config import *
+from src.config import *
+
 
 
 PROJECT_ID = 'ee-singhparth427'  
@@ -105,7 +106,7 @@ def main(start_date, end_date, output_file):
 if __name__ == "__main__":
     
     end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=20)).strftime('%Y-%m-%d')
     
     if len(sys.argv) > 1:
         start_date = sys.argv[1]
