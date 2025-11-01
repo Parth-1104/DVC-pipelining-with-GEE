@@ -530,9 +530,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-**Parth Pankaj Singh** - [@yourtwitter](https://twitter.com/yourtwitter) -singhparth427@gmail.com
+Parth Pankaj Singh - -singhparth427@gmail.com
 
-Project Link: [https://github.com/yourusername/water-quality-monitoring](https://github.com/yourusername/water-quality-monitoring)
+Project Link: [https://github.com/Parth-1104/DVC-pipelining-with-GEE](https://github.com/Parth-1104/DVC-pipelining-with-GEE)
 
 ---
 
