@@ -1,7 +1,7 @@
 schema: '2.0'
 stages:
   fetch_data:
-    cmd: python src/fetch_data.py 2024-01-01 2024-10-25 sentinel2_raw.csv
+    cmd: python src/fetch_data.py 2023-12-01 2024-01-25 sentinel2_raw.csv
     deps:
     - path: src/config.py
       hash: md5
@@ -9,24 +9,24 @@ stages:
       size: 940
     - path: src/fetch_data.py
       hash: md5
-      md5: 80ed5b7822f479bc5f88df00dc3e5eaa
-      size: 3294
+      md5: c85f8a60464c1fbd2ad975fe164798b8
+      size: 3295
     params:
       params.yaml:
-        data.end_date: '2024-10-25'
-        data.start_date: '2024-01-01'
+        data.end_date: '2024-01-25'
+        data.start_date: '2023-12-01'
     outs:
     - path: data/raw/sentinel2_raw.csv
       hash: md5
-      md5: 398dd87c3007da3afffb4cc14278fbdb
-      size: 4235
+      md5: 085d9aae310514897e0d5a5ff98391cf
+      size: 662
   validate_data:
     cmd: python src/validate_data.py sentinel2_raw.csv sentinel2_validated.csv
     deps:
     - path: data/raw/sentinel2_raw.csv
       hash: md5
-      md5: 398dd87c3007da3afffb4cc14278fbdb
-      size: 4235
+      md5: 085d9aae310514897e0d5a5ff98391cf
+      size: 662
     - path: src/validate_data.py
       hash: md5
       md5: 93c29aa27c3a1e978bab2c2b0b25027c
@@ -34,8 +34,8 @@ stages:
     outs:
     - path: data/raw/sentinel2_validated.csv
       hash: md5
-      md5: 66a58f70cd46d61febe0679e73f7e039
-      size: 4101
+      md5: f5946b29363b18cb2205d1b09953ca76
+      size: 640
   preprocess:
     cmd: python src/preprocess.py sentinel2_validated.csv processed_features.csv
       scaler.pkl
