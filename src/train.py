@@ -33,7 +33,7 @@ class WaterQualityDataset(Dataset):
         self.seq_len = seq_len
     
     def __len__(self):
-        return len(self.features) - self.seq_len + 1
+        return max(0,len(self.features) - self.seq_len + 1)
     
     def __getitem__(self, idx):
         """Return a sequence and its target"""
@@ -127,7 +127,10 @@ def main(config_file='params.yaml'):
     y_train, y_val = y[:split_idx], y[split_idx:]
     print(f"Train samples: {len(X_train)}, Val samples: {len(X_val)}")
 
-    seq_len = config['model'].get('seq_len', 10)
+    seq_len = config['model'].get('seq_len', 5)
+    if len(X_train) < seq_len or len(X_val) < seq_len:
+        raise ValueError(f"Training/validation data too small for sequence length {seq_len}. "
+                     f"Train samples: {len(X_train)}, Val samples: {len(X_val)}")
     train_dataset = WaterQualityDataset(X_train, y_train, seq_len=seq_len)
     val_dataset = WaterQualityDataset(X_val, y_val, seq_len=seq_len)
     train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True, num_workers=0)
@@ -223,6 +226,10 @@ def main(config_file='params.yaml'):
 
 if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'params.yaml'
+    
+    if not os.path.exists(config_file):
+        print(f"Error: Config file '{config_file}' does not exist.")
+        sys.exit(1)
     main(config_file)
 
 

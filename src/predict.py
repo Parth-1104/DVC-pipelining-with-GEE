@@ -9,7 +9,6 @@ import numpy as np
 import os
 from config import *
 from model import HydroTransNet
-from train import WaterQualityDataset
 import mlflow
 import dagshub
 
@@ -37,11 +36,13 @@ def load_model(model_path):
 def predict_new_data(model, new_data_path, output_path):
     """Run inference on unseen processed data"""
     df = pd.read_csv(new_data_path)
+    
     if 'date' in df.columns:
         dates = df['date']
         df = df.drop(columns=['date'])
     else:
         dates = np.arange(len(df))
+    
     X_new = torch.tensor(df.values, dtype=torch.float32)
     seq_len = 5  # Should match training config
 
@@ -51,9 +52,13 @@ def predict_new_data(model, new_data_path, output_path):
         with torch.no_grad():
             outputs = model(seq)
         preds.append(outputs.numpy().flatten())
+    
     preds = np.array(preds)
-    pred_df = pd.DataFrame(preds, columns=['TSS_pred', 'Turbidity_pred', 'Chlorophyll_pred'])
+    # Output keys with "pH" instead of Chlorophyll as requested
+    pred_df = pd.DataFrame(preds, columns=['TSS', 'Turbidity', 'pH'])
+    
     pred_df['date'] = dates[seq_len - 1:].values  # align remaining timestamps
+
     pred_df.to_csv(output_path, index=False)
     print(f"✓ Saved predictions to {output_path}")
 
@@ -62,18 +67,20 @@ def predict_new_data(model, new_data_path, output_path):
         mlflow.log_metric("num_predictions", len(pred_df))
         mlflow.log_artifact(output_path)
 
+    # Return JSON serializable predictions with desired keys
+    return pred_df.to_dict(orient='records')
 
 
 def main():
     model_path = os.path.join(MODELS_DIR, 'best_model.pt')
     new_data_path = os.path.join(DATA_DIR, 'processed', 'processed_features.csv')
-    
     # Corrected output path
     output_path = os.path.join(MODELS_DIR, 'new_predictions.csv')
     
     model = load_model(model_path)
-    predict_new_data(model, new_data_path, output_path)
-
+    preds_json = predict_new_data(model, new_data_path, output_path)
+    # Print or further handle preds_json if needed
+    print(preds_json)
 
 
 if __name__ == "__main__":

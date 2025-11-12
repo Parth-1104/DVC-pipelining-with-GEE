@@ -15,13 +15,13 @@ for directory in [RAW_DATA_DIR, PROCESSED_DATA_DIR, MODELS_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 # GEE Configuration
-LAKE_COORDS = [
-    [77.1100, 28.7500],
-    [77.1150, 28.7500],
-    [77.1150, 28.7550],
-    [77.1100, 28.7550],
-    [77.1100, 28.7500]
-]
+# LAKE_COORDS = [
+#     [77.1100, 28.7500],
+#     [77.1150, 28.7500],
+#     [77.1150, 28.7550],
+#     [77.1100, 28.7550],
+#     [77.1100, 28.7500]
+# ]
 
 SENTINEL_COLLECTION = 'COPERNICUS/S2_SR'
 BANDS = ['B2', 'B3', 'B4', 'B8']

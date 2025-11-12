@@ -1,12 +1,12 @@
 data:
   start_date: "2023-12-01"
-  end_date: "2024-01-25"
+  end_date: "2024-04-25"
   test_size: 0.2
   random_state: 42
 
 model:
   type: "hydrotransnet"
-  seq_len: 5                    # Reduced from 10
+  seq_len: 3                    # Reduced from 10
   d_model: 128                   # Reduced from 128
   nhead: 8                     # Reduced from 8
   num_encoder_layers: 4         # Reduced from 4
