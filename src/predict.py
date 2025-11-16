@@ -55,7 +55,7 @@ def predict_new_data(model, new_data_path, output_path):
     
     preds = np.array(preds)
     # Output keys with "pH" instead of Chlorophyll as requested
-    pred_df = pd.DataFrame(preds, columns=['TSS', 'Turbidity', 'pH'])
+    pred_df = pd.DataFrame(preds, columns=['TSS', 'Turbidity', 'Chlorophyll'])
     
     pred_df['date'] = dates[seq_len - 1:].values  # align remaining timestamps
 
