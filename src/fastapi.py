@@ -93,7 +93,7 @@ async def predict(request: PredictionRequest):
         preds.append(outputs.numpy().flatten().tolist())
 
     # Include date in output
-    cols = ['TSS', 'Turbidity', 'pH']
+    cols = ['TSS mg/L', 'Turbidity NTU', 'Chlorophyll ug/L']
     pred_df = pd.DataFrame(preds, columns=cols)
     pred_df['date'] = df_processed['date'].values[seq_len - 1:]  # align dates
 

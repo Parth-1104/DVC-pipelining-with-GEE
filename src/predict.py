@@ -21,10 +21,10 @@ def load_model(model_path):
     model = HydroTransNet(
         input_dim=len(['B2_Blue', 'B3_Green', 'B4_Red', 'B8_NIR', 'NDVI', 'NDWI', 'Turbidity_Index']),
         d_model=model_config.get('d_model', 128),
-        nhead=model_config.get('nhead', 8),
-        num_encoder_layers=model_config.get('num_encoder_layers', 4),
+        nhead=model_config.get('nhead', 4),
+        num_encoder_layers=model_config.get('num_encoder_layers', 8),
         dim_feedforward=model_config.get('dim_feedforward', 512),
-        dropout=model_config.get('dropout', 0.1),
+        dropout=model_config.get('dropout', 0.01),
         output_dim=3
     )
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -44,7 +44,7 @@ def predict_new_data(model, new_data_path, output_path):
         dates = np.arange(len(df))
     
     X_new = torch.tensor(df.values, dtype=torch.float32)
-    seq_len = 5  # Should match training config
+    seq_len = 3  # Should match training config
 
     preds = []
     for i in range(len(X_new) - seq_len + 1):
@@ -55,7 +55,7 @@ def predict_new_data(model, new_data_path, output_path):
     
     preds = np.array(preds)
     # Output keys with "pH" instead of Chlorophyll as requested
-    pred_df = pd.DataFrame(preds, columns=['TSS', 'Turbidity', 'Chlorophyll'])
+    pred_df = pd.DataFrame(preds, columns=['TSS mg/L', 'Turbidity NTU', 'Chlorophyll mg/L'])
     
     pred_df['date'] = dates[seq_len - 1:].values  # align remaining timestamps
 

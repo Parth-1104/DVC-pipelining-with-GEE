@@ -5,7 +5,7 @@ stages:
     deps:
     - path: src/config.py
       hash: md5
-      md5: 9ebe42495b55bc697fd19fd9e6fb672d
+      md5: 293bd5101aaf7529c4f30f0465258f89
       size: 940
     - path: src/fetch_data.py
       hash: md5
@@ -18,15 +18,15 @@ stages:
     outs:
     - path: data/raw/sentinel2_raw.csv
       hash: md5
-      md5: 312cecb2913d41f901ba688d7dd4cba1
-      size: 2182
+      md5: 5987cba7c107b2df5c3b287fea5fa55c
+      size: 3603
   validate_data:
     cmd: python src/validate_data.py sentinel2_raw.csv sentinel2_validated.csv
     deps:
     - path: data/raw/sentinel2_raw.csv
       hash: md5
-      md5: 312cecb2913d41f901ba688d7dd4cba1
-      size: 2182
+      md5: 5987cba7c107b2df5c3b287fea5fa55c
+      size: 3603
     - path: src/validate_data.py
       hash: md5
       md5: 93c29aa27c3a1e978bab2c2b0b25027c
@@ -34,16 +34,16 @@ stages:
     outs:
     - path: data/raw/sentinel2_validated.csv
       hash: md5
-      md5: d2d04067f5198209942938639aba82f1
-      size: 2110
+      md5: 95c94d837c0fd57895f91358cae5b161
+      size: 3495
   preprocess:
     cmd: python src/preprocess.py sentinel2_validated.csv processed_features.csv
       scaler.pkl
     deps:
     - path: data/raw/sentinel2_validated.csv
       hash: md5
-      md5: d2d04067f5198209942938639aba82f1
-      size: 2110
+      md5: 95c94d837c0fd57895f91358cae5b161
+      size: 3495
     - path: src/preprocess.py
       hash: md5
       md5: 52e5bee02354a607afc2248028fd1918
@@ -51,19 +51,19 @@ stages:
     outs:
     - path: data/processed/processed_features.csv
       hash: md5
-      md5: d5d2d1e54d99e9753d00bca5aef8e0ac
-      size: 1993
+      md5: 01c68c41bef4f37601a6093fa0ec7e71
+      size: 3218
     - path: models/trained_models/scaler.pkl
       hash: md5
-      md5: 5dc5427fdd0295dc9b85ccdbdeab179e
+      md5: e8f4daaab53d91211a4ee1adb3e222ea
       size: 618
   generate_labels:
     cmd: python src/generate_labels.py processed_features.csv labels.csv
     deps:
     - path: data/processed/processed_features.csv
       hash: md5
-      md5: d5d2d1e54d99e9753d00bca5aef8e0ac
-      size: 1993
+      md5: 01c68c41bef4f37601a6093fa0ec7e71
+      size: 3218
     - path: src/generate_labels.py
       hash: md5
       md5: 395eb4eca8bb7fc3522df24b3bf55435
@@ -71,22 +71,22 @@ stages:
     outs:
     - path: data/processed/labels.csv
       hash: md5
-      md5: 8e9cdec6ceff0d5988ee4ef416cf146d
-      size: 888
+      md5: 89b443906e4a4ff736c728766bcbc2d2
+      size: 1413
   train:
     cmd: python src/train.py params.yaml
     deps:
     - path: data/processed/labels.csv
       hash: md5
-      md5: 8e9cdec6ceff0d5988ee4ef416cf146d
-      size: 888
+      md5: 89b443906e4a4ff736c728766bcbc2d2
+      size: 1413
     - path: data/processed/processed_features.csv
       hash: md5
-      md5: d5d2d1e54d99e9753d00bca5aef8e0ac
-      size: 1993
+      md5: 01c68c41bef4f37601a6093fa0ec7e71
+      size: 3218
     - path: src/config.py
       hash: md5
-      md5: 9ebe42495b55bc697fd19fd9e6fb672d
+      md5: 293bd5101aaf7529c4f30f0465258f89
       size: 940
     - path: src/generate_labels.py
       hash: md5
@@ -94,87 +94,87 @@ stages:
       size: 585
     - path: src/model.py
       hash: md5
-      md5: 4c052ea5a9c7724f38ce592e01ca4e05
-      size: 4407
+      md5: 079d333219f8b6afaef6c4fbbfc53fd3
+      size: 4573
     - path: src/train.py
       hash: md5
-      md5: 1f0e922df2a84100f89c7967b6e98b68
-      size: 8282
+      md5: 944a77712ccdafc37140f085a3f639b4
+      size: 8283
     params:
       params.yaml:
         model:
           type: hydrotransnet
           seq_len: 3
           d_model: 128
-          nhead: 8
-          num_encoder_layers: 4
+          nhead: 4
+          num_encoder_layers: 8
           dim_feedforward: 512
-          dropout: 0.1
+          dropout: 0.01
           learning_rate: 0.001
           epochs: 100
           batch_size: 4
     outs:
     - path: models/trained_models/best_model.pt
       hash: md5
-      md5: d1da726fa3b9cdb9c1e019a39c655c94
-      size: 12456754
+      md5: 6d5dcfc40736df56fe19ba0189f74a47
+      size: 22082874
     - path: models/trained_models/training_history.pkl
       hash: md5
-      md5: d1205c18664e175b7f3317f81fb7a089
-      size: 804
+      md5: 56b1a83058f95714da694b49b0357451
+      size: 660
   evaluate:
     cmd: python src/evaluate.py params.yaml
     deps:
     - path: data/processed/processed_features.csv
       hash: md5
-      md5: d5d2d1e54d99e9753d00bca5aef8e0ac
-      size: 1993
+      md5: 01c68c41bef4f37601a6093fa0ec7e71
+      size: 3218
     - path: models/trained_models/best_model.pt
       hash: md5
-      md5: d1da726fa3b9cdb9c1e019a39c655c94
-      size: 12456754
+      md5: 6d5dcfc40736df56fe19ba0189f74a47
+      size: 22082874
     - path: src/evaluate.py
       hash: md5
-      md5: 1f198e7855b3f965081a7f979848771c
-      size: 6218
+      md5: f84c0843c2887fc634ec957db5b5b349
+      size: 6219
     outs:
     - path: models/trained_models/evaluation_metrics.pkl
       hash: md5
-      md5: aad899509f38133908a0dc8f9e2ff43a
+      md5: 03962337cbc28a7847b452180f571516
       size: 415
     - path: models/trained_models/predictions.png
       hash: md5
-      md5: 4d38934f8c997a13d30f80e40063cbb0
-      size: 142158
+      md5: 85372a2935dcbb7f0ed88510a5396c36
+      size: 214456
     - path: models/trained_models/residuals.png
       hash: md5
-      md5: d0b2e13bb7002f4894494290413827e5
-      size: 119847
+      md5: 81be5f7e8293fe9d326f6ee6a3963a6b
+      size: 146734
     - path: models/trained_models/test_predictions.csv
       hash: md5
-      md5: b4ca6e01b5e31a7092e962626cc5cf8b
-      size: 55
+      md5: f9378f9c3fe5dc42eaa2625f93da38f6
+      size: 109
   predict:
     cmd: python src/predict.py
     deps:
     - path: data/processed/processed_features.csv
       hash: md5
-      md5: d5d2d1e54d99e9753d00bca5aef8e0ac
-      size: 1993
+      md5: 01c68c41bef4f37601a6093fa0ec7e71
+      size: 3218
     - path: models/trained_models/best_model.pt
       hash: md5
-      md5: d1da726fa3b9cdb9c1e019a39c655c94
-      size: 12456754
+      md5: 6d5dcfc40736df56fe19ba0189f74a47
+      size: 22082874
     - path: src/model.py
       hash: md5
-      md5: 4c052ea5a9c7724f38ce592e01ca4e05
-      size: 4407
+      md5: 079d333219f8b6afaef6c4fbbfc53fd3
+      size: 4573
     - path: src/predict.py
       hash: md5
-      md5: 609f535483f1a2dc4af20b88d99ff47e
-      size: 2566
+      md5: 1cb5eef6e86e5a89bfe43a05dd9aa98c
+      size: 2785
     outs:
     - path: models/trained_models/new_predictions.csv
       hash: md5
-      md5: ec5f89048593aba680f9e7887e12457f
-      size: 399
+      md5: 4ead2ab5769ecffbfc67032ac6f2f0e8
+      size: 703

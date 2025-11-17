@@ -64,10 +64,10 @@ class HydroTransNet(nn.Module):
         self,
         input_dim=7,           # Number of input features (spectral bands + indices)
         d_model=128,           # Embedding dimension
-        nhead=8,               # Number of attention heads
-        num_encoder_layers=4,  # Number of transformer encoder layers
+        nhead=4,               # Number of attention heads
+        num_encoder_layers=8,  # Number of transformer encoder layers
         dim_feedforward=512,   # Dimension of feedforward network
-        dropout=0.1,
+        dropout=0.01,
         output_dim=3           # Number of output parameters (TSS, Turbidity, Chlorophyll)
     ):
         super(HydroTransNet, self).__init__()
@@ -96,6 +96,9 @@ class HydroTransNet(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(128, 64)
+        self.relu = nn.ReLU()
+        self.fc3 = nn.Linear(64,64)
+        self.relu = nn.ReLU()
         self.fc_out = nn.Linear(64, output_dim)
         
         self._init_weights()
@@ -132,6 +135,8 @@ class HydroTransNet(nn.Module):
         output = self.relu(output)
         output = self.dropout(output)
         output = self.fc2(output)
+        output = self.relu(output)
+        output = self.fc3(output)
         output = self.relu(output)
         output = self.fc_out(output)
         

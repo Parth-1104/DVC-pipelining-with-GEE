@@ -140,10 +140,10 @@ def main(config_file='params.yaml'):
     model = HydroTransNet(
         input_dim=X.shape[1],
         d_model=config['model'].get('d_model', 128),
-        nhead=config['model'].get('nhead', 8),
-        num_encoder_layers=config['model'].get('num_encoder_layers', 4),
+        nhead=config['model'].get('nhead', 4),
+        num_encoder_layers=config['model'].get('num_encoder_layers', 8),
         dim_feedforward=config['model'].get('dim_feedforward', 512),
-        dropout=config['model'].get('dropout', 0.1),
+        dropout=config['model'].get('dropout', 0.01),
         output_dim=y.shape[1]
     ).to(device)
     print(f"Model parameters: {count_parameters(model):,}")

@@ -112,10 +112,10 @@ def evaluate_model(model_path, config_file='params.yaml'):
     model = HydroTransNet(
         input_dim=X.shape[1],
         d_model=checkpoint['config']['model'].get('d_model', 128),
-        nhead=checkpoint['config']['model'].get('nhead', 8),
-        num_encoder_layers=checkpoint['config']['model'].get('num_encoder_layers', 4),
+        nhead=checkpoint['config']['model'].get('nhead', 4),
+        num_encoder_layers=checkpoint['config']['model'].get('num_encoder_layers', 8),
         dim_feedforward=checkpoint['config']['model'].get('dim_feedforward', 512),
-        dropout=checkpoint['config']['model'].get('dropout', 0.1),
+        dropout=checkpoint['config']['model'].get('dropout', 0.01),
         output_dim=y.shape[1]
     ).to(device)
     
