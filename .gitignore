@@ -4,4 +4,4 @@ mlruns/
 models/
 .env
 generated_data/
-generated_labels
+generated_labels/
