@@ -11,11 +11,18 @@ import pickle
 import yaml
 import sys
 import os
+import mlflow
+import mlflow.pytorch
+import dagshub
 from tqdm import tqdm
 from config import *
-from model import HydroTransNet, count_parameters, log_model_to_mlflow
+from model import HydroTransNet, count_parameters
 
 
+# Initialize DAGsHub/MLflow
+dagshub.init(repo_owner='Parth-1104', repo_name='DVC-pipelining-with-GEE', mlflow=True)
+mlflow.set_tracking_uri("https://dagshub.com/Parth-1104/DVC-pipelining-with-GEE.mlflow")
+mlflow.set_experiment("WaterQuality_Transformer")
 
 
 class WaterQualityDataset(Dataset):
@@ -33,7 +40,7 @@ class WaterQualityDataset(Dataset):
         self.seq_len = seq_len
     
     def __len__(self):
-        return max(0,len(self.features) - self.seq_len + 1)
+        return max(0, len(self.features) - self.seq_len + 1)
     
     def __getitem__(self, idx):
         """Return a sequence and its target"""
@@ -111,12 +118,11 @@ def validate(model, dataloader, criterion, device):
     return total_loss / len(dataloader)
 
 
-
-
 def main(config_file='params.yaml'):
     """Main training function"""
     with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
@@ -130,11 +136,14 @@ def main(config_file='params.yaml'):
     seq_len = config['model'].get('seq_len', 5)
     if len(X_train) < seq_len or len(X_val) < seq_len:
         raise ValueError(f"Training/validation data too small for sequence length {seq_len}. "
-                     f"Train samples: {len(X_train)}, Val samples: {len(X_val)}")
+                         f"Train samples: {len(X_train)}, Val samples: {len(X_val)}")
+    
     train_dataset = WaterQualityDataset(X_train, y_train, seq_len=seq_len)
     val_dataset = WaterQualityDataset(X_val, y_val, seq_len=seq_len)
-    train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], 
+                             shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], 
+                           shuffle=False, num_workers=0)
 
     print("\nInitializing model...")
     model = HydroTransNet(
@@ -158,78 +167,118 @@ def main(config_file='params.yaml'):
         optimizer, mode='min', factor=0.5, patience=5
     )
 
-    print("\nStarting training...")
-    best_val_loss = float('inf')
-    patience = 0
-    max_patience = 15
-    history = {'train_loss': [], 'val_loss': []}
+    # Start MLflow run for training
+    with mlflow.start_run(run_name="stage_02_model_training"):
+        mlflow.set_tag("pipeline_stage", "training")
+        mlflow.set_tag("stage_order", "02")
+        
+        # Log model hyperparameters
+        params = {
+            "input_dim": X.shape[1],
+            "d_model": config['model'].get('d_model', 128),
+            "nhead": config['model'].get('nhead', 4),
+            "num_encoder_layers": config['model'].get('num_encoder_layers', 8),
+            "dim_feedforward": config['model'].get('dim_feedforward', 512),
+            "dropout": config['model'].get('dropout', 0.01),
+            "output_dim": y.shape[1],
+            "activation": "gelu",
+            "batch_first": False,
+            "seq_len": seq_len,
+            "learning_rate": config['model']['learning_rate'],
+            "batch_size": config['model']['batch_size'],
+            "epochs": config['model']['epochs'],
+            "optimizer": "Adam",
+            "weight_decay": 1e-5,
+            "max_patience": 15,
+            "grad_clip_norm": 1.0,
+            "total_parameters": count_parameters(model)
+        }
+        mlflow.log_params(params)
 
-    for epoch in range(config['model']['epochs']):
-        print(f"\nEpoch {epoch+1}/{config['model']['epochs']}")
-        train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
-        val_loss = validate(model, val_loader, criterion, device)
-        current_lr = optimizer.param_groups[0]['lr']
-        scheduler.step(val_loss)
-        new_lr = optimizer.param_groups[0]['lr']
-        if new_lr < current_lr:
-            print(f"Learning rate reduced: {current_lr:.6f} -> {new_lr:.6f}")
-        history['train_loss'].append(train_loss)
-        history['val_loss'].append(val_loss)
-        print(f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}")
+        print("\nStarting training...")
+        best_val_loss = float('inf')
+        patience = 0
+        max_patience = 15
+        history = {'train_loss': [], 'val_loss': []}
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            patience = 0
-            model_path = os.path.join(MODELS_DIR, 'best_model.pt')
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'val_loss': val_loss,
-                'config': config
-            }, model_path)
-            print(f"✓ Saved best model (val_loss: {val_loss:.6f})")
-        else:
-            patience += 1
-            if patience >= max_patience:
-                print(f"\nEarly stopping at epoch {epoch+1}")
-                break
+        for epoch in range(config['model']['epochs']):
+            print(f"\nEpoch {epoch+1}/{config['model']['epochs']}")
+            train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
+            val_loss = validate(model, val_loader, criterion, device)
+            current_lr = optimizer.param_groups[0]['lr']
+            scheduler.step(val_loss)
+            new_lr = optimizer.param_groups[0]['lr']
+            
+            if new_lr < current_lr:
+                print(f"Learning rate reduced: {current_lr:.6f} -> {new_lr:.6f}")
+            
+            history['train_loss'].append(train_loss)
+            history['val_loss'].append(val_loss)
+            print(f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}")
+            
+            # Log metrics per epoch to MLflow
+            mlflow.log_metric("train_loss", train_loss, step=epoch)
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+            mlflow.log_metric("learning_rate", new_lr, step=epoch)
 
-    # --- MLflow logging (add after training) ---
-    params = {
-        "input_dim": X.shape[1],
-        "d_model": config['model'].get('d_model', 128),
-        "nhead": config['model'].get('nhead', 8),
-        "num_encoder_layers": config['model'].get('num_encoder_layers', 4),
-        "dim_feedforward": config['model'].get('dim_feedforward', 512),
-        "dropout": config['model'].get('dropout', 0.1),
-        "output_dim": y.shape[1],
-        "learning_rate": config['model']['learning_rate'],
-        "batch_size": config['model']['batch_size'],
-        "epochs": config['model']['epochs'],
-    }
-    metrics = {
-        "best_val_loss": best_val_loss,
-        "final_train_loss": history['train_loss'][-1] if history['train_loss'] else None,
-        "final_val_loss": history['val_loss'][-1] if history['val_loss'] else None,
-        "early_stopped": patience >= max_patience
-    }
-    # reload best model for logging artifact to mlflow
-    model.load_state_dict(torch.load(model_path)['model_state_dict'])
-    log_model_to_mlflow(model, params, metrics, model_name="HydroTransNet", run_name="WaterQualityTransformer")
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience = 0
+                
+                # Ensure models directory exists
+                os.makedirs(MODELS_DIR, exist_ok=True)
+                
+                model_path = os.path.join(MODELS_DIR, 'best_model.pt')
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'val_loss': val_loss,
+                    'config': config
+                }, model_path)
+                print(f"✓ Saved best model (val_loss: {val_loss:.6f})")
+            else:
+                patience += 1
+                if patience >= max_patience:
+                    print(f"\nEarly stopping at epoch {epoch+1}")
+                    break
 
-    history_path = os.path.join(MODELS_DIR, 'training_history.pkl')
-    with open(history_path, 'wb') as f:
-        pickle.dump(history, f)
-    print(f"\n✓ Training complete! Best val loss: {best_val_loss:.6f}")
-    print(f"✓ Model saved to: {model_path}")
+        # Log final metrics
+        final_metrics = {
+            "best_val_loss": best_val_loss,
+            "final_train_loss": history['train_loss'][-1] if history['train_loss'] else None,
+            "final_val_loss": history['val_loss'][-1] if history['val_loss'] else None,
+            "total_epochs_trained": len(history['train_loss']),
+            "early_stopped": int(patience >= max_patience)
+        }
+        mlflow.log_metrics(final_metrics)
+        
+        # Reload best model
+        checkpoint = torch.load(model_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        
+        # Log model checkpoint as artifact (instead of mlflow.pytorch.log_model)
+        mlflow.log_artifact(model_path, artifact_path="model")
+        
+        # Log training history as artifact
+        history_path = os.path.join(MODELS_DIR, 'training_history.pkl')
+        with open(history_path, 'wb') as f:
+            pickle.dump(history, f)
+        mlflow.log_artifact(history_path, artifact_path="training_data")
+        
+        print(f"\n✓ Training complete! Best val loss: {best_val_loss:.6f}")
+        print(f"✓ Model saved to: {model_path}")
+        print(f"✓ Training metrics and model logged to MLflow run: {mlflow.active_run().info.run_id}")
+
 
 if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'params.yaml'
     
     if not os.path.exists(config_file):
-        print(f"Error: Config file '{config_file}' does not exist.")
+        print(f"Error: Config file '{config_file}' not found.")
         sys.exit(1)
+    
     main(config_file)
+
 
 
