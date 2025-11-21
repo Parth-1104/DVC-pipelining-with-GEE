@@ -1,5 +1,5 @@
 {
-  "total_records": 168,
+  "total_records": 424,
   "missing_values": {
     "date": 0,
     "B2_Blue": 0,
@@ -7,6 +7,6 @@
     "B4_Red": 0,
     "B8_NIR": 0
   },
-  "date_range": "2025-05-03 00:00:00 to 2025-10-24 00:00:00",
-  "duplicates": 91
+  "date_range": "2024-05-03 00:00:00 to 2025-10-24 00:00:00",
+  "duplicates": 220
 }

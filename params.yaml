@@ -1,5 +1,5 @@
 data:
-  start_date: "2025-05-01"
+  start_date: "2024-05-01"
   end_date: "2025-10-25"
   test_size: 0.5
   random_state: 42

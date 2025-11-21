@@ -26,6 +26,7 @@ stages:
     outs:
       - data/processed/processed_features.csv
       - models/trained_models/scaler.pkl
+
   generate_labels:
     cmd: python src/generate_labels.py processed_features.csv labels.csv
     deps:
@@ -34,13 +35,24 @@ stages:
     outs:
       - data/processed/labels.csv
 
+  pretrain:
+    cmd: python src/pretrain.py data/processed/processed_features.csv data/processed/labels.csv data/processed/features_for_training.csv data/processed/labels_for_training.csv data/processed/feature_scaler.pkl
+    deps:
+      - src/pretrain.py
+      - data/processed/processed_features.csv
+      - data/processed/labels.csv
+    outs:
+      - data/processed/features_for_training.csv
+      - data/processed/labels_for_training.csv
+      - data/processed/feature_scaler.pkl
+
   train:
     cmd: python src/train.py params.yaml
     deps:
       - src/train.py
       - src/model.py
-      - data/processed/processed_features.csv
-      - data/processed/labels.csv
+      - data/processed/features_for_training.csv
+      - data/processed/labels_for_training.csv
       - src/config.py
       - src/generate_labels.py
     params:
@@ -48,7 +60,7 @@ stages:
     outs:
       - models/trained_models/best_model.pt
       - models/trained_models/training_history.pkl
-  
+
   predict:
     cmd: python src/predict.py
     deps:
@@ -70,13 +82,3 @@ stages:
       - models/trained_models/predictions.png
       - models/trained_models/residuals.png
       - models/trained_models/test_predictions.csv
-
-  # predict:
-  #   cmd: python src/predict.py
-  #   deps:
-  #     - src/predict.py
-  #     - src/model.py
-  #     - models/trained_models/best_model.pt
-  #     - data/processed/processed_features.csv
-  #   outs:
-  #     - models/trained_models/new_predictions.csv

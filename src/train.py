@@ -11,6 +11,7 @@ import os
 from tqdm import tqdm
 from config import *
 from model import HydroTransNet, count_parameters, log_model_to_mlflow
+from pretrain import preprocess_data
 
 TARGET_PARAMS = ['TSS', 'Turbidity', 'Chlorophyll']
 
@@ -86,8 +87,24 @@ def main(config_file='params.yaml'):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    print("Loading data...")
-    X, y = load_data('processed_features.csv', 'labels.csv')
+    raw_features_file = os.path.join(PROCESSED_DATA_DIR, 'processed_features.csv')
+    raw_labels_file = os.path.join(PROCESSED_DATA_DIR, 'labels.csv')
+    proc_features_file = os.path.join(PROCESSED_DATA_DIR, 'features_for_training.csv')
+    proc_labels_file = os.path.join(PROCESSED_DATA_DIR, 'labels_for_training.csv')
+    scaler_file = os.path.join(PROCESSED_DATA_DIR, 'feature_scaler.pkl')
+
+    # Run preprocessing step before training
+    preprocess_data(
+        raw_features_file,
+        raw_labels_file,
+        proc_features_file,
+        proc_labels_file,
+        scaler_file
+    )
+
+    # Then load processed data for training
+    X, y = load_data(os.path.basename(proc_features_file), os.path.basename(proc_labels_file))
+
 
     # Clip negative Turbidity and Chlorophyll label values to zero
     # Assuming columns order is [TSS, Turbidity, Chlorophyll]
