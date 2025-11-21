@@ -44,6 +44,11 @@ def log_model_to_mlflow(model, params, metrics, model_name="HydroTransNet", run_
             print(f"Model and metrics logged to MLflow with run: {mlflow.active_run().info.run_id}")
 
 
+import torch
+import torch.nn as nn
+import math
+
+
 class PositionalEncoding(nn.Module):
     """Add positional information to input embeddings"""
 
@@ -68,18 +73,22 @@ class PositionalEncoding(nn.Module):
 
 class HydroTransNet(nn.Module):
     """
-    Transformer-based water quality prediction model
+    Transformer-based water quality prediction model enhanced with LSTM and GRU layers on top
     """
 
     def __init__(
         self,
-        input_dim=7,  # Number of input features (spectral bands + indices)
-        d_model=128,  # Embedding dimension
-        nhead=4,  # Number of attention heads
-        num_encoder_layers=8,  # Number of transformer encoder layers
-        dim_feedforward=512,  # Dimension of feedforward network
+        input_dim=7,            # Number of input features
+        d_model=128,            # Transformer embedding dimension
+        nhead=4,                # Number of attention heads
+        num_encoder_layers=8,   # Number of transformer encoder layers
+        dim_feedforward=512,    # Dimension of feedforward network
         dropout=0.01,
-        output_dim=3,  # Number of output parameters (TSS, Turbidity, Chlorophyll)
+        output_dim=3,           # Number of output parameters (TSS, Turbidity, Chlorophyll)
+        lstm_hidden_dim=64,     # Hidden size for LSTM layer
+        gru_hidden_dim=64,      # Hidden size for GRU layer
+        lstm_layers=1,
+        gru_layers=1,
     ):
         super(HydroTransNet, self).__init__()
         self.d_model = d_model
@@ -97,7 +106,23 @@ class HydroTransNet(nn.Module):
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
 
-        self.fc1 = nn.Linear(d_model, 128)
+        # Add LSTM and GRU layers on top of transformer output
+        self.lstm = nn.LSTM(
+            input_size=d_model,
+            hidden_size=lstm_hidden_dim,
+            num_layers=lstm_layers,
+            batch_first=False,
+            bidirectional=False
+        )
+        self.gru = nn.GRU(
+            input_size=lstm_hidden_dim,
+            hidden_size=gru_hidden_dim,
+            num_layers=gru_layers,
+            batch_first=False,
+            bidirectional=False
+        )
+
+        self.fc1 = nn.Linear(gru_hidden_dim, 128)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(128, 64)
@@ -121,23 +146,36 @@ class HydroTransNet(nn.Module):
         Returns:
             Output tensor of shape [batch_size, output_dim]
         """
-        src = self.embedding(src) * math.sqrt(self.d_model)
-        src = self.pos_encoder(src)
+        # Embed and add positional encoding
+        x = self.embedding(src) * math.sqrt(self.d_model)
+        x = self.pos_encoder(x)
 
-        output = self.transformer_encoder(src, src_mask)
-        output = output[-1, :, :]  # take last sequence output
+        # Transformer encoder
+        x = self.transformer_encoder(x, src_mask)  # Shape: [seq_len, batch, d_model]
 
-        # Pass through output layers
-        output = self.fc1(output)
-        output = self.relu(output)
-        output = self.dropout(output)
-        output = self.fc2(output)
-        output = self.relu(output)
-        output = self.fc3(output)
-        output = self.relu(output)
-        output = self.fc_out(output)
+        # LSTM layer
+        x, _ = self.lstm(x)  # Shape: [seq_len, batch, lstm_hidden_dim]
 
+        # GRU layer
+        x, _ = self.gru(x)   # Shape: [seq_len, batch, gru_hidden_dim]
+
+        # Take output of the last sequence step
+        x = x[-1, :, :]
+
+        # Fully connected layers
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.fc2(x)
+        x = self.relu(x)
+
+        x = self.fc3(x)
+        x = self.relu(x)
+
+        output = self.fc_out(x)
         return output
+
 
 
 def count_parameters(model):

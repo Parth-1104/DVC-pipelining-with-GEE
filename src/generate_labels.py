@@ -12,17 +12,17 @@ ee.Initialize(project=PROJECT_ID)
 features_file = os.path.join(PROCESSED_DATA_DIR, 'processed_features.csv')
 output_file = os.path.join(PROCESSED_DATA_DIR, 'labels.csv')
 
-# Load features dataframe (must have 'date' column in 'YYYY-MM-DD' format)
+
 features_df = pd.read_csv(features_file)
 features_df['date'] = pd.to_datetime(features_df['date'])
 features_df = features_df.sort_values('date')
 
-# ROI from config (input)
+
 roi = ee.Geometry.Polygon(LAKE_COORDS)
 
-# Use a fixed 4-year date window
+
 custom_start_date = '2019-01-01'   # Set as needed
-custom_end_date = '2024-12-31'     # Set as needed
+custom_end_date = '2025-10-31'     # Set as needed
 start_date = custom_start_date
 end_date = custom_end_date
 print(f"Using fixed date window: {start_date} to {end_date}")
@@ -38,7 +38,7 @@ landsat_col = (
 # Optional: print available Landsat dates for diagnostics
 scenes = landsat_col.aggregate_array('system:time_start').getInfo()
 print(f"Found {len(scenes)} Landsat scenes in fixed date window:")
-for ms in scenes[:10]:  # just first 10 for brevity
+for ms in scenes[:20]:  # just first 10 for brevity
     print(ee.Date(ms).format('YYYY-MM-dd').getInfo())
 
 def estimate_labels(image):
@@ -86,7 +86,7 @@ labels_df['date'] = pd.to_datetime(labels_df['date'])
 labels_df = labels_df.sort_values('date')
 
 # Flexible merge: For each features_df row, attach nearest label within tolerance (e.g., ±7 days)
-tolerance_days = 7
+tolerance_days = 12
 merged = pd.merge_asof(
     features_df,
     labels_df,

@@ -37,7 +37,6 @@ def load_data(features_file, labels_file):
         features_df = features_df.drop('date', axis=1)
     if 'date' in labels_df.columns:
         labels_df = labels_df.drop('date', axis=1)
-    # ENSURE: Only the correct target columns
     missing = [col for col in TARGET_PARAMS if col not in labels_df.columns]
     if missing:
         raise ValueError(f"Missing columns in labels.csv: {missing}")
@@ -89,6 +88,12 @@ def main(config_file='params.yaml'):
 
     print("Loading data...")
     X, y = load_data('processed_features.csv', 'labels.csv')
+
+    # Clip negative Turbidity and Chlorophyll label values to zero
+    # Assuming columns order is [TSS, Turbidity, Chlorophyll]
+    y[:, 1] = np.clip(y[:, 1], a_min=0, a_max=None)  # Turbidity
+    y[:, 2] = np.clip(y[:, 2], a_min=0, a_max=None)  # Chlorophyll
+
     n_samples = len(X)
     seq_len = config['model'].get('seq_len', 5)
     output_dim = config['model'].get('output_dim', y.shape[1])
@@ -145,8 +150,6 @@ def main(config_file='params.yaml'):
 
     print("\nStarting training...")
     best_val_loss = float('inf')
-    patience = 0
-    max_patience = 15
     history = {'train_loss': [], 'val_loss': []}
     model_path = os.path.join(MODELS_DIR, 'best_model.pt')
 
@@ -171,7 +174,6 @@ def main(config_file='params.yaml'):
 
         if val_loss is not None and val_loss < best_val_loss:
             best_val_loss = val_loss
-            patience = 0
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -180,41 +182,12 @@ def main(config_file='params.yaml'):
                 'config': config
             }, model_path)
             print(f"✓ Saved best model (val_loss: {val_loss:.6f})")
-        elif val_loss is not None:
-            patience += 1
-            if patience >= max_patience:
-                print(f"\nEarly stopping at epoch {epoch+1}")
-                break
-
-    # --- MLflow logging (add after training) ---
-    params = {
-        "input_dim": X.shape[1],
-        "d_model": config['model'].get('d_model', 128),
-        "nhead": config['model'].get('nhead', 4),
-        "num_encoder_layers": config['model'].get('num_encoder_layers', 8),
-        "dim_feedforward": config['model'].get('dim_feedforward', 512),
-        "dropout": config['model'].get('dropout', 0.01),
-        "output_dim": output_dim,
-        "learning_rate": config['model']['learning_rate'],
-        "batch_size": config['model']['batch_size'],
-        "epochs": config['model']['epochs'],
-    }
-    metrics = {
-        "best_val_loss": best_val_loss if val_loader else None,
-        "final_train_loss": history['train_loss'][-1] if history['train_loss'] else None,
-        "final_val_loss": history['val_loss'][-1] if val_loader and history['val_loss'] else None,
-        "early_stopped": patience >= max_patience if val_loader else None
-    }
-    if val_loader and os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path)['model_state_dict'])
-    log_model_to_mlflow(model, params, metrics, model_name="HydroTransNet", run_name="WaterQualityTransformer")
 
     history_path = os.path.join(MODELS_DIR, 'training_history.pkl')
+    os.makedirs(MODELS_DIR, exist_ok=True)
     with open(history_path, 'wb') as f:
         pickle.dump(history, f)
-    print(f"\n✓ Training complete! Best val loss: {best_val_loss if val_loader else 'N/A'}")
-    if val_loader and os.path.exists(model_path):
-        print(f"✓ Model saved to: {model_path}")
+    print(f"\n✓ Training history saved at {history_path}")
 
 if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else 'params.yaml'

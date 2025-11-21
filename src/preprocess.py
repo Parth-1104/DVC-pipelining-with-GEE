@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 import pickle
 import sys
 import os
-from config import *
+from src.config import *
 
 
 def preprocess_data(input_file, output_file, scaler_file):

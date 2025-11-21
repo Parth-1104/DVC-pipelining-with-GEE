@@ -49,6 +49,7 @@ async def root():
 
 
 @app.post("/predict")
+@app.post("/predict")
 async def predict(request: PredictionRequest):
     global model, config
 
@@ -80,6 +81,7 @@ async def predict(request: PredictionRequest):
     if len(df_processed) < seq_len:
         return {"error": f"Insufficient processed data length {len(df_processed)} for sequence length {seq_len}"}
 
+    # Prepare features and get NDVI, NDWI values aligned with prediction windows
     try:
         X = torch.tensor(df_processed.drop(columns=['date'], errors='ignore').values, dtype=torch.float32)
     except Exception as e:
@@ -92,13 +94,17 @@ async def predict(request: PredictionRequest):
             outputs = model(seq)
         preds.append(outputs.numpy().flatten().tolist())
 
-    # Include date in output
     cols = ['TSS mg/L', 'Turbidity NTU', 'Chlorophyll ug/L']
     pred_df = pd.DataFrame(preds, columns=cols)
-    pred_df['date'] = df_processed['date'].values[seq_len - 1:]  # align dates
+    pred_df['date'] = df_processed['date'].values[seq_len - 1:]
+
+    # Add NDVI and NDWI columns aligned with prediction timestamps
+    pred_df['NDVI'] = df_processed['NDVI'].values[seq_len - 1:]
+    pred_df['NDWI'] = df_processed['NDWI'].values[seq_len - 1:]
 
     pred_dicts = pred_df.to_dict(orient='records')
     return {"predictions": pred_dicts}
+
     
 class QuickPredictRequest(BaseModel):
     processed_features: list

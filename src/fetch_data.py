@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 import sys
-from config import *
+from src.config import *
 
 
 
@@ -15,74 +15,52 @@ ee.Initialize(project=PROJECT_ID)
 
 def fetch_sentinel2_timeseries(start_date, end_date, roi_coords):
     """
-    Fetch Sentinel-2 time series data for a region of interest
-    
-    Args:
-        start_date: Start date (YYYY-MM-DD)
-        end_date: End date (YYYY-MM-DD)
-        roi_coords: List of coordinates defining the ROI
-    
-    Returns:
-        pandas DataFrame with spectral bands and dates
+    Fetch Sentinel-2 time series data efficiently by server-side aggregation and one-shot download.
     """
-   
     roi = ee.Geometry.Polygon(roi_coords)
-    
-   
-    collection = ee.ImageCollection(SENTINEL_COLLECTION) \
-        .filterBounds(roi) \
-        .filterDate(start_date, end_date) \
-        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', MAX_CLOUD_COVER)) \
+    collection = (
+        ee.ImageCollection(SENTINEL_COLLECTION)
+        .filterBounds(roi)
+        .filterDate(start_date, end_date)
+        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', MAX_CLOUD_COVER))
         .select(BANDS)
-    
-    
-    count = collection.size().getInfo()
-    print(f"Found {count} images in the date range")
-    
-    if count == 0:
-        print("No images found. Check your date range and location.")
-        return pd.DataFrame()
-    
-    
-    image_list = collection.toList(count)
-    
-    data_records = []
-    
-    for i in range(count):
-        try:
-            image = ee.Image(image_list.get(i))
-            
-            
-            date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd').getInfo()
-            
-            
-            stats = image.reduceRegion(
-                reducer=ee.Reducer.mean(),
-                geometry=roi,
-                scale=SCALE,
-                maxPixels=1e9
-            ).getInfo()
-            
-            
-            record = {
-                'date': date,
-                'B2_Blue': stats.get('B2', None) / 10000 if stats.get('B2') else None,
-                'B3_Green': stats.get('B3', None) / 10000 if stats.get('B3') else None,
-                'B4_Red': stats.get('B4', None) / 10000 if stats.get('B4') else None,
-                'B8_NIR': stats.get('B8', None) / 10000 if stats.get('B8') else None,
-            }
-            
-            data_records.append(record)
-            
-            if (i + 1) % 10 == 0:
-                print(f"Processed {i + 1}/{count} images")
-                
-        except Exception as e:
-            print(f"Error processing image {i}: {str(e)}")
-            continue
-    
-    df = pd.DataFrame(data_records)
+    )
+
+    def image_to_feature(image):
+        stats = image.reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=roi,
+            scale=SCALE,
+            maxPixels=1e9
+        )
+        date = image.date().format('YYYY-MM-dd')
+        return ee.Feature(None, {
+            'date': date,
+            'B2_Blue': stats.get('B2'),
+            'B3_Green': stats.get('B3'),
+            'B4_Red': stats.get('B4'),
+            'B8_NIR': stats.get('B8'),
+        })
+
+    feature_collection = collection.map(image_to_feature)
+
+    # One call to getFeatureCollection info (server side)
+    data = feature_collection.getInfo()
+    records = []
+    for f in data['features']:
+        props = f['properties']
+        record = {
+            'date': props['date'],
+            'B2_Blue': props['B2_Blue'] / 10000 if props['B2_Blue'] else None,
+            'B3_Green': props['B3_Green'] / 10000 if props['B3_Green'] else None,
+            'B4_Red': props['B4_Red'] / 10000 if props['B4_Red'] else None,
+            'B8_NIR': props['B8_NIR'] / 10000 if props['B8_NIR'] else None,
+        }
+        records.append(record)
+
+    df = pd.DataFrame(records)
     return df
+
 
 
 def main(start_date, end_date, output_file):

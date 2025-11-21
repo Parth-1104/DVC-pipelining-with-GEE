@@ -34,30 +34,41 @@ def load_model(model_path):
 
 
 def predict_new_data(model, new_data_path, output_path):
-    """Run inference on unseen processed data"""
+    """Run inference on unseen processed data and include NDVI and NDWI in output"""
     df = pd.read_csv(new_data_path)
-    
+
     if 'date' in df.columns:
         dates = df['date']
-        df = df.drop(columns=['date'])
+        df_nodate = df.drop(columns=['date'])
     else:
         dates = np.arange(len(df))
-    
-    X_new = torch.tensor(df.values, dtype=torch.float32)
+        df_nodate = df
+
+    # Make sure NDVI and NDWI exist
+    ndvi_vals = df['NDVI'].values
+    ndwi_vals = df['NDWI'].values
+
+    X_new = torch.tensor(df_nodate.values, dtype=torch.float32)
     seq_len = 3  # Should match training config
 
     preds = []
+    ndvi_seq = []
+    ndwi_seq = []
     for i in range(len(X_new) - seq_len + 1):
         seq = X_new[i:i + seq_len].unsqueeze(1)  # [seq_len, 1, features]
         with torch.no_grad():
             outputs = model(seq)
         preds.append(outputs.numpy().flatten())
-    
+        ndvi_seq.append(ndvi_vals[i + seq_len - 1])
+        ndwi_seq.append(ndwi_vals[i + seq_len - 1])
+
     preds = np.array(preds)
-    # Output keys with "pH" instead of Chlorophyll as requested
     pred_df = pd.DataFrame(preds, columns=['TSS mg/L', 'Turbidity NTU', 'Chlorophyll mg/L'])
-    
-    pred_df['date'] = dates[seq_len - 1:].values  # align remaining timestamps
+
+    # Add NDVI, NDWI, and date to outputs (aligned with predictions)
+    pred_df['date'] = dates[seq_len - 1:].values
+    pred_df['NDVI'] = ndvi_seq
+    pred_df['NDWI'] = ndwi_seq
 
     pred_df.to_csv(output_path, index=False)
     print(f"✓ Saved predictions to {output_path}")
@@ -67,8 +78,9 @@ def predict_new_data(model, new_data_path, output_path):
         mlflow.log_metric("num_predictions", len(pred_df))
         mlflow.log_artifact(output_path)
 
-    # Return JSON serializable predictions with desired keys
+    # Include NDVI and NDWI in the output JSON as well
     return pred_df.to_dict(orient='records')
+
 
 
 def main():
