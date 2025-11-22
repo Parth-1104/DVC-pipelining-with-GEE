@@ -7,6 +7,8 @@ import os
 from src.model import HydroTransNet
 from src.fetch_data import fetch_sentinel2_timeseries
 from src.preprocess import preprocess_data
+from datetime import datetime, timedelta
+
 
 app = FastAPI()
 model = None
@@ -142,3 +144,92 @@ async def predict_quick(request: QuickPredictRequest):
 
     pred_dicts = pred_df.to_dict(orient='records')
     return {"predictions": pred_dicts}
+
+@app.post("/currdate")
+async def current_week_prediction(request: dict = {}):
+    """
+    Get water quality prediction for the last week's data.
+    """
+    global model, config
+
+    # Define date range: last week
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=20)).strftime('%Y-%m-%d')
+
+    # Use default ROI coordinates or get from request if provided
+    coordinates = request.get('coordinates', None)
+    if not coordinates:
+        return {"error": "Please provide 'coordinates' in the request body."}
+
+    # Fetch raw Sentinel-2 data for last week
+    df_raw = fetch_sentinel2_timeseries(start_date, end_date, coordinates)
+    if df_raw.empty:
+        return {"error": f"No Sentinel-2 data found for coordinates in the last week: {start_date} to {end_date}"}
+
+    # Preprocess fetched data
+    try:
+        df_processed = preprocess_data_inline(df_raw)  # Use inline or helper preprocessing function returning DataFrame
+    except Exception as e:
+        return {"error": f"Preprocessing failed: {str(e)}"}
+
+    if df_processed.empty:
+        return {"error": "Processed data is empty after preprocessing."}
+
+    seq_len = config['model']['seq_len']
+    if len(df_processed) < seq_len:
+        return {"error": f"Insufficient data length {len(df_processed)} for sequence length {seq_len}"}
+
+    # Prepare input features tensor
+    try:
+        X = torch.tensor(df_processed.drop(columns=['date'], errors='ignore').values, dtype=torch.float32)
+    except Exception as e:
+        return {"error": f"Error preparing features for prediction: {str(e)}"}
+
+    # Predict on last sequence
+    with torch.no_grad():
+        input_seq = X[-seq_len:].unsqueeze(1)  # [seq_len, batch=1, features]
+        output = model(input_seq).numpy().flatten()
+
+    # Extract last date, NDVI, NDWI aligned with prediction
+    last_date = df_processed['date'].values[-1]
+    ndvi_val = float(df_processed['NDVI'].values[-1])
+    ndwi_val = float(df_processed['NDWI'].values[-1])
+
+    # Construct response
+    result = {
+        "TSS mg/L": float(output[0]),
+        "Turbidity NTU": float(output[1]),
+        "Chlorophyll ug/L": float(output[2]),
+        "date": str(last_date),
+        "NDVI": ndvi_val,
+        "NDWI": ndwi_val
+    }
+    return result
+
+
+# Helper inline preprocessing, similar to your preprocess_data but accepting DataFrame directly.
+def preprocess_data_inline(df):
+    # 1. Drop NA and duplicates (optional)
+    df = df.dropna().drop_duplicates(subset=['date'])
+
+    # 2. Feature engineering
+    df['NDVI'] = (df['B8_NIR'] - df['B4_Red']) / (df['B8_NIR'] + df['B4_Red'] + 1e-8)
+    df['NDWI'] = (df['B3_Green'] - df['B8_NIR']) / (df['B3_Green'] + df['B8_NIR'] + 1e-8)
+    df['Turbidity_Index'] = df['B4_Red'] / df['B3_Green']
+
+    feature_cols = ['B2_Blue', 'B3_Green', 'B4_Red', 'B8_NIR', 'NDVI', 'NDWI', 'Turbidity_Index']
+
+    # 3. Fill missing if any, scale features (using runtime StandardScaler)
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(df[feature_cols].values)
+
+    processed_df = pd.DataFrame(features_scaled, columns=feature_cols)
+    processed_df['date'] = df['date'].values
+    # Add NDVI and NDWI columns as original scaled versions for response use
+    processed_df['NDVI'] = df['NDVI'].values
+    processed_df['NDWI'] = df['NDWI'].values
+
+    return processed_df
+
+
