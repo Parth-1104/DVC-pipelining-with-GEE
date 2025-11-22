@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/parthpankajsingh/Desktop/ParthMLCoding/GEEwithMLops/mlruns/0/541b1330478f45d78a2cb7fb862c62ba/artifacts
+end_time: 1763389961735
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 541b1330478f45d78a2cb7fb862c62ba
+run_name: predict
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763389961725
+status: 3
+tags: []
+user_id: parthpankajsingh

@@ -1,0 +1,23 @@
+artifact_path: file:///Users/parthpankajsingh/Desktop/ParthMLCoding/GEEwithMLops/mlruns/0/models/m-4e6a0d9f7cec45ddbf7aaacda9ef2ad9/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.11.0
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.9.0
+mlflow_version: 3.5.1
+model_id: m-4e6a0d9f7cec45ddbf7aaacda9ef2ad9
+model_size_bytes: 5929228
+model_uuid: m-4e6a0d9f7cec45ddbf7aaacda9ef2ad9
+prompts: null
+run_id: ebf0e64e13834fb6afeb76a09364fb67
+utc_time_created: '2025-11-17 14:20:20.928524'

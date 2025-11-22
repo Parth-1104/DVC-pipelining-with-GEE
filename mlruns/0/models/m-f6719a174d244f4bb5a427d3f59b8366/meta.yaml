@@ -1,0 +1,10 @@
+artifact_location: file:///Users/parthpankajsingh/Desktop/ParthMLCoding/GEEwithMLops/mlruns/0/models/m-f6719a174d244f4bb5a427d3f59b8366/artifacts
+creation_timestamp: 1763657836083
+experiment_id: '0'
+last_updated_timestamp: 1763657838171
+model_id: m-f6719a174d244f4bb5a427d3f59b8366
+model_type: null
+name: HydroTransNet
+source_run_id: 19a4afecba5848d1b2081f89e75b999f
+status: 2
+status_message: null

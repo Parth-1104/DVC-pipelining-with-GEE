@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/parthpankajsingh/Desktop/ParthMLCoding/GEEwithMLops/mlruns/0/daae86d27b8941c7ac8d16486bef776b/artifacts
+end_time: 1763388798832
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: daae86d27b8941c7ac8d16486bef776b
+run_name: WaterQualityTransformer
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763388796766
+status: 3
+tags: []
+user_id: parthpankajsingh
