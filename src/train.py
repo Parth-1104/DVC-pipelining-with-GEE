@@ -11,7 +11,6 @@ import os
 from tqdm import tqdm
 from config import *
 from model import HydroTransNet, count_parameters, log_model_to_mlflow
-from pretrain import preprocess_data
 
 TARGET_PARAMS = ['TSS', 'Turbidity', 'Chlorophyll']
 
@@ -20,33 +19,23 @@ class WaterQualityDataset(Dataset):
         self.features = torch.FloatTensor(features)
         self.labels = torch.FloatTensor(labels)
         self.seq_len = seq_len
-
     def __len__(self):
         return max(0, len(self.labels) - self.seq_len + 1)
-
     def __getitem__(self, idx):
         x = self.features[idx: idx + self.seq_len]
         y = self.labels[idx + self.seq_len - 1]
         return x, y
 
 def load_data(features_file, labels_file):
-    features_path = os.path.join(PROCESSED_DATA_DIR, features_file)
-    labels_path = os.path.join(PROCESSED_DATA_DIR, labels_file)
-    features_df = pd.read_csv(features_path)
-    labels_df = pd.read_csv(labels_path)
+    features_df = pd.read_csv(features_file)
+    labels_df = pd.read_csv(labels_file)
+    # Preprocessing (date removed, columns already scaled!)
     if 'date' in features_df.columns:
         features_df = features_df.drop('date', axis=1)
     if 'date' in labels_df.columns:
         labels_df = labels_df.drop('date', axis=1)
-    missing = [col for col in TARGET_PARAMS if col not in labels_df.columns]
-    if missing:
-        raise ValueError(f"Missing columns in labels.csv: {missing}")
-    # Clip right here!
-    for param in TARGET_PARAMS:
-        labels_df[param] = np.clip(labels_df[param].values, a_min=0, a_max=None)
-    labels_df = labels_df[TARGET_PARAMS]  # Ensure column order
     X = features_df.values
-    y = labels_df.values
+    y = labels_df[TARGET_PARAMS].values
     print("features shape:", X.shape)
     print("labels shape:", y.shape)
     return X, y
@@ -55,16 +44,16 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0
     batches = 0
-    for batch_x, batch_y in tqdm(dataloader, desc="Training"):
+    for batch_x, batch_y in tqdm(dataloader, desc="Training", leave=False):
         batch_x = batch_x.to(device)
         batch_y = batch_y.to(device)
-        batch_x = batch_x.transpose(0, 1)
+        batch_x = batch_x.transpose(0, 1)  # [seq, batch, features]
         outputs = model(batch_x)
         loss = criterion(outputs, batch_y)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.zero_grad()
         optimizer.step()
+        optimizer.zero_grad()
         total_loss += loss.item()
         batches += 1
     return total_loss / batches if batches > 0 else None
@@ -90,24 +79,10 @@ def main(config_file='params.yaml'):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    raw_features_file = os.path.join(PROCESSED_DATA_DIR, 'processed_features.csv')
-    raw_labels_file = os.path.join(PROCESSED_DATA_DIR, 'labels.csv')
     proc_features_file = os.path.join(PROCESSED_DATA_DIR, 'features_for_training.csv')
     proc_labels_file = os.path.join(PROCESSED_DATA_DIR, 'labels_for_training.csv')
-    scaler_file = os.path.join(PROCESSED_DATA_DIR, 'feature_scaler.pkl')
 
-    # Run preprocessing step before training
-    preprocess_data(
-        raw_features_file,
-        raw_labels_file,
-        proc_features_file,
-        proc_labels_file,
-        scaler_file
-    )
-
-    # Then load processed data for training (now with clipped labels, robust)
-    X, y = load_data(os.path.basename(proc_features_file), os.path.basename(proc_labels_file))
-
+    X, y = load_data(proc_features_file, proc_labels_file)
     n_samples = len(X)
     seq_len = config['model'].get('seq_len', 5)
     output_dim = config['model'].get('output_dim', y.shape[1])
@@ -118,10 +93,8 @@ def main(config_file='params.yaml'):
     if (n_samples - split_idx) < seq_len:
         if n_samples > seq_len:
             split_idx = n_samples - seq_len
-
     X_train, X_val = X[:split_idx], X[split_idx:]
     y_train, y_val = y[:split_idx], y[split_idx:]
-
     print(f"Total samples: {n_samples}")
     print(f"Train samples: {len(X_train)}, Val samples: {len(X_val)}")
 
@@ -142,24 +115,18 @@ def main(config_file='params.yaml'):
     print("\nInitializing model...")
     model = HydroTransNet(
         input_dim=X.shape[1],
-        d_model=config['model'].get('d_model', 128),
-        nhead=config['model'].get('nhead', 4),
-        num_encoder_layers=config['model'].get('num_encoder_layers', 8),
-        dim_feedforward=config['model'].get('dim_feedforward', 512),
-        dropout=config['model'].get('dropout', 0.01),
+        d_model=config['model']['d_model'],
+        nhead=config['model']['nhead'],
+        num_encoder_layers=config['model']['num_encoder_layers'],
+        dim_feedforward=config['model']['dim_feedforward'],
+        dropout=config['model']['dropout'],
         output_dim=output_dim
     ).to(device)
     print(f"Model parameters: {count_parameters(model):,}")
 
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(
-        model.parameters(),
-        lr=config['model']['learning_rate'],
-        weight_decay=1e-5
-    )
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=5
-    )
+    optimizer = optim.Adam(model.parameters(), lr=config['model']['learning_rate'], weight_decay=1e-5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
 
     print("\nStarting training...")
     best_val_loss = float('inf')
@@ -184,7 +151,6 @@ def main(config_file='params.yaml'):
             print(f", Val Loss: {val_loss:.6f}")
         else:
             print(", Val Loss: N/A (no validation set)")
-
         if val_loss is not None and val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save({
@@ -195,7 +161,6 @@ def main(config_file='params.yaml'):
                 'config': config
             }, model_path)
             print(f"✓ Saved best model (val_loss: {val_loss:.6f})")
-
     history_path = os.path.join(MODELS_DIR, 'training_history.pkl')
     os.makedirs(MODELS_DIR, exist_ok=True)
     with open(history_path, 'wb') as f:

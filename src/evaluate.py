@@ -88,7 +88,11 @@ def evaluate_model(model_path, config_file='params.yaml'):
     print(f"Using device: {device}")
 
     print("Loading data...")
-    X, y = load_data('processed_features.csv', 'labels.csv')
+    X, y = load_data(
+    os.path.join(PROCESSED_DATA_DIR, 'features_for_training.csv'),
+    os.path.join(PROCESSED_DATA_DIR, 'labels_for_training.csv')
+)
+
 
     split_idx = int(len(X) * (1 - config['data']['test_size']))
     X_test, y_test = X[split_idx:], y[split_idx:]

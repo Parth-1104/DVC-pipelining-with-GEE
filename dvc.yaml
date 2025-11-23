@@ -36,7 +36,7 @@ stages:
       - data/processed/labels.csv
 
   pretrain:
-    cmd: python src/pretrain.py data/processed/processed_features.csv data/processed/labels.csv data/processed/features_for_training.csv data/processed/labels_for_training.csv data/processed/feature_scaler.pkl
+    cmd: python src/pretrain.py data/processed/processed_features.csv data/processed/labels.csv data/processed/features_for_training.csv data/processed/labels_for_training.csv data/processed/feature_scaler.pkl data/processed/label_scaler.pkl
     deps:
       - src/pretrain.py
       - data/processed/processed_features.csv
@@ -45,6 +45,10 @@ stages:
       - data/processed/features_for_training.csv
       - data/processed/labels_for_training.csv
       - data/processed/feature_scaler.pkl
+      - data/processed/label_scaler.pkl
+
+
+
 
   train:
     cmd: python src/train.py params.yaml

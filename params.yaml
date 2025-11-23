@@ -1,5 +1,5 @@
 data:
-  start_date: "2010-05-01"
+  start_date: "2010-04-01"
   end_date: "2025-10-25"
   test_size: 0.2
   random_state: 42
@@ -11,10 +11,10 @@ model:
   nhead: 4                     # Reduced from 8
   num_encoder_layers: 8         # Reduced from 4
   dim_feedforward: 512          # Reduced from 512
-  dropout: 0.01
+  dropout: 0.001
   learning_rate: 0.001          # Increased from 0.0001
   epochs:  100                    # Reduced from 100
-  batch_size: 4                 # Reduced from 32
+  batch_size: 10                 # Reduced from 32
 
 preprocessing:
   scale_features: true
