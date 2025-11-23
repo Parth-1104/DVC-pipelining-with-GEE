@@ -1,74 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  Brush
-} from 'recharts';
 import { waterBodies } from '../data/waterBodies';
 import TimeSpanSelector from '../components/TimeSpanSelector';
-import { subDays, subMonths, subYears, format, parseISO } from 'date-fns';
+import { subDays, subMonths, subYears, format } from 'date-fns';
 
 const DECIMALS = 7;
 
 const metricConfig = [
-  { key: "turbidity", label: "Turbidity NTU", color: "#ca8a04", icon: "💧" },
-  { key: "tss", label: "TSS mg/L", color: "#7c3aed", icon: "🟣" },
-  { key: "chlorophyll", label: "Chlorophyll µg/L", color: "#059669", icon: "🌱" },
-  { key: "ndvi", label: "NDVI", color: "#2563eb", icon: "🟩" },
-  { key: "ndwi", label: "NDWI", color: "#06b6d4", icon: "🟦" },
+  { key: "turbidity", label: "Turbidity NTU" },
+  { key: "tss", label: "TSS mg/L" },
+  { key: "chlorophyll", label: "Chlorophyll µg/L" },
+  { key: "ndvi", label: "NDVI" },
+  { key: "ndwi", label: "NDWI" },
 ];
 
-function formatNumber(value: number | undefined) {
+function formatNumber(value) {
   return value !== undefined ? value.toFixed(DECIMALS) : '--';
+}
+
+function getTableRowsToShow(timeSpan) {
+  if (timeSpan === '1Y') return 80;
+  if (timeSpan === '6M') return 40;
+  return 14;
 }
 
 export default function LakePage() {
   const { name } = useParams();
   const [timeSpan, setTimeSpan] = useState('1M');
   const [chartData, setChartData] = useState([]);
-  const [currentReading, setCurrentReading] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
   const [report, setReport] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [hasAnimated, setHasAnimated] = useState(false);
 
   const lake = waterBodies.find(body => body.name.toLowerCase() === decodeURIComponent(name || ''));
 
   useEffect(() => {
+    let cancelled = false;
     if (!lake) return;
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      const today = new Date();
-      let startDate = new Date();
-      switch (timeSpan) {
-        case '1W': startDate = subDays(today, 20); break;
-        case '1M': startDate = subMonths(today, 1); break;
-        case '6M': startDate = subMonths(today, 6); break;
-        case '1Y': startDate = subYears(today, 1); break;
-        default: startDate = subMonths(today, 1);
-      }
-      const formattedStartDate = format(startDate, 'yyyy-MM-dd');
-      const formattedEndDate = format(today, 'yyyy-MM-dd');
-      try {
-        const response = await fetch('http://127.0.0.1:8000/predict', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            coordinates: lake.coordinates,
-            start_date: formattedStartDate,
-            end_date: formattedEndDate
-          }),
-        });
-        if (!response.ok) throw new Error('Failed to fetch prediction data');
-        const data = await response.json();
+    setIsFetchingData(true);
+    setError(null);
+
+    const today = new Date();
+    let startDate = new Date();
+    switch (timeSpan) {
+      case '1W': startDate = subDays(today, 20); break;
+      case '1M': startDate = subMonths(today, 1); break;
+      case '6M': startDate = subMonths(today, 6); break;
+      case '1Y': startDate = subYears(today, 1); break;
+      default: startDate = subMonths(today, 1);
+    }
+    const formattedStartDate = format(startDate, 'yyyy-MM-dd');
+    const formattedEndDate = format(today, 'yyyy-MM-dd');
+
+    fetch('http://127.0.0.1:8000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        coordinates: lake.coordinates,
+        start_date: formattedStartDate,
+        end_date: formattedEndDate
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
         const normalizedData = (data.predictions || []).map(item => ({
           date: item.date,
           turbidity: item["Turbidity NTU"],
@@ -78,20 +76,17 @@ export default function LakePage() {
           ndwi: item["NDWI"]
         }));
         setChartData(normalizedData);
-        setCurrentReading(normalizedData.length > 0 ? normalizedData[normalizedData.length - 1] : null);
-      } catch (err) {
-        console.error(err);
-        setError('Unable to load water quality data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+        setTimeout(() => setHasAnimated(true), 100); // animate table in
+      })
+      .catch(() => setError('Unable to load water quality data'))
+      .finally(() => setIsFetchingData(false));
+
+    return () => { cancelled = true };
   }, [lake, timeSpan]);
 
-  async function handleGenerateReport() {
+  const handleGenerateReport = async () => {
     if (!lake || chartData.length === 0) return;
-    setIsGenerating(true);
+    setIsGeneratingReport(true);
     setReport('');
     const today = new Date();
     let startDate = new Date();
@@ -120,10 +115,60 @@ export default function LakePage() {
       });
       const json = await resp.json();
       setReport(json.report || json.error || 'No report generated.');
-    } catch (err) {
+    } catch {
       setReport('Error calling Gemini API.');
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingReport(false);
+    }
+  };
+
+  async function handleDownloadPDF() {
+    if (!lake || chartData.length === 0 || !report) {
+      alert('Please generate the AI report first before downloading PDF.');
+      return;
+    }
+    setIsPdfGenerating(true);
+
+    const today = new Date();
+    let startDate = new Date();
+    switch (timeSpan) {
+      case '1W': startDate = subDays(today, 20); break;
+      case '1M': startDate = subMonths(today, 1); break;
+      case '6M': startDate = subMonths(today, 6); break;
+      case '1Y': startDate = subYears(today, 1); break;
+      default: startDate = subMonths(today, 1);
+    }
+    const formattedStartDate = format(startDate, 'yyyy-MM-dd');
+    const formattedEndDate = format(today, 'yyyy-MM-dd');
+
+    const req = {
+      lake_name: lake.name,
+      location: lake.location,
+      area: lake.area,
+      chart_data: chartData,
+      start_date: formattedStartDate,
+      end_date: formattedEndDate,
+      ai_report: report
+    };
+    try {
+      const resp = await fetch('http://127.0.0.1:8000/generate_pdf_report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+      if (!resp.ok) throw new Error('PDF generation failed');
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${lake.name}_WQ_Report_${format(today, 'yyyyMMdd')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert('Error generating PDF: ' + err.message);
+    } finally {
+      setIsPdfGenerating(false);
     }
   }
 
@@ -136,144 +181,109 @@ export default function LakePage() {
     );
   }
 
+  // How many rows to show in table based on timespan
+  const rowsToShow = getTableRowsToShow(timeSpan);
+
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">{lake.name}</h1>
-        <p className="mt-2 text-gray-600">Location: {lake.location}</p>
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{lake.name}</h1>
+        <p className="mt-2 text-gray-600 text-md">Location: {lake.location}</p>
+        <TimeSpanSelector selectedSpan={timeSpan} onSpanChange={setTimeSpan} className="mt-3" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white p-7 rounded-xl shadow-md">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">Lake Details</h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">Area</span>
-              <span className="text-xl font-bold">{lake.area} ha</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-7 rounded-xl shadow-md col-span-2 flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Parameter Trends (Scatter)</h3>
-            <TimeSpanSelector selectedSpan={timeSpan} onSpanChange={setTimeSpan} />
-          </div>
-          <div style={{ flex: 1 }}>
-            {loading ? (
-              <div className="h-full flex items-center justify-center text-gray-500">Loading chart data...</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <ScatterChart>
-                  <CartesianGrid strokeDasharray="4 4" />
-                  <XAxis 
-                    dataKey="date"
-                    type="category"
-                    tickFormatter={(date) => {
-                      try { return format(parseISO(date), 'MMM d'); } catch { return date; }
-                    }}
-                  />
-                  <YAxis
-                    tickFormatter={(value: number) => value.toFixed(7)}
-                    domain={['auto', 'auto']}
-                  />
-                  <Tooltip
-                    formatter={(val: number, name: string) => formatNumber(val)}
-                    labelFormatter={(date: string) => {
-                      try { return format(parseISO(date), 'MMM d, yyyy'); }
-                      catch { return date; }
-                    }}
-                  />
-                  <Legend />
-                  <Brush dataKey="date" height={30} stroke="#aaa" />
-                  {metricConfig.slice(0, 3).map(metric => (
-                    <Scatter
-                      key={metric.key}
-                      name={metric.label}
-                      data={chartData}
-                      fill={metric.color}
-                      dataKey={metric.key}
-                      shape="circle"
-                    />
-                  ))}
-                </ScatterChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Table */}
-      <div className="bg-white p-7 rounded-xl shadow-md overflow-x-auto">
-        <h3 className="text-lg font-semibold mb-2">Recent Measurements (7 decimals)</h3>
-        <table className="min-w-full border-collapse border">
-          <thead>
-            <tr>
-              <th>Date</th>
-              {metricConfig.map(m => (
-                <th key={m.key} style={{color: m.color}}>{m.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {chartData.slice(-7).map((row, idx) => (
-              <tr key={row.date + idx}>
-                <td>{row.date}</td>
-                {metricConfig.map(m => (
-                  <td key={m.key}>{formatNumber(row[m.key])}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Info Cards */}
-      <div className="bg-white p-7 rounded-xl shadow-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Latest Readings</h3>
-          {currentReading && (
-            <span className="text-sm text-gray-500">
-              Date: {currentReading.date}
-            </span>
-          )}
-        </div>
-        {loading ? (
-          <div className="text-center py-6">Loading latest values...</div>
-        ) : error ? (
-          <div className="text-center py-6 text-red-500">{error}</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-7">
-            {metricConfig.map((metric) => (
-              <div key={metric.key} className="p-4 rounded-lg flex flex-col items-center bg-gradient-to-tr shadow-sm"
-                style={{
-                  background: `linear-gradient(130deg, ${metric.color}30 40%, #fff 100%)`
-                }}>
-                <span className="text-3xl mb-2">{metric.icon}</span>
-                <span className={`text-sm font-medium`} style={{ color: metric.color }}>
-                  {metric.label}
-                </span>
-                <span className="text-lg font-bold text-gray-900 mt-2">
-                  {formatNumber(currentReading ? currentReading[metric.key] : undefined)}
-                </span>
-              </div>
-            ))}
+      {/* Table Card with Loader Overlay */}
+      <div style={{ position: 'relative', minHeight: 200, minWidth: 330 }}>
+        {/* Loader Overlay */}
+        {isFetchingData && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-60 rounded-xl z-10">
+            <svg className="animate-spin h-14 w-14 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-70" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-blue-700 font-medium text-lg tracking-wide">Fetching water quality data...</span>
           </div>
         )}
+        <div className={`transition-opacity duration-700 ease-in-out bg-white p-7 rounded-xl shadow-md overflow-x-auto ${
+          hasAnimated && chartData.length > 0 && !isFetchingData ? 'opacity-100' : 'opacity-0'
+        }`}>
+          <h3 className="text-lg font-semibold mb-2">Water Quality Table (most recent on bottom, precise to 7 decimals)</h3>
+          {error ? (
+            <div className="text-center py-6 text-red-500">{error}</div>
+          ) : chartData.length === 0 ? (
+            <div className="py-8 text-gray-500 text-center">No data for this period.</div>
+          ) : (
+            <table className="min-w-full border-collapse border" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <thead>
+                <tr>
+                  <th className="font-bold">Date</th>
+                  {metricConfig.map(m => (
+                    <th className="font-bold" key={m.key}>{m.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {chartData.slice(-rowsToShow).map((row, idx) => (
+                  <tr key={row.date + idx}>
+                    <td>{row.date}</td>
+                    {metricConfig.map(m => (
+                      <td key={m.key}>{formatNumber(row[m.key])}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
-      {/* Gemini AI Report Section */}
-      <div className="bg-gray-50 p-6 rounded-lg mt-8">
-        <h3 className="text-lg font-bold mb-4">AI-Powered Narrative Report</h3>
-        <button
-          onClick={handleGenerateReport}
-          disabled={isGenerating || !chartData.length}
-          className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 mb-4"
-        >
-          {isGenerating ? "Generating..." : "Generate AI Report"}
-        </button>
-        <div className="whitespace-pre-line text-gray-900 text-base mt-4 max-w-2xl mx-auto">{report}</div>
+      {/* AI Gemini Report */}
+      <div
+        className={`rounded-xl shadow-md p-8 mt-6 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 transition-all duration-700 ${report ? 'animate-[fadein_2s]' : ''}`}
+        style={{ minHeight: 250 }}
+      >
+        <h3 className="text-lg font-bold mb-4 text-blue-800 flex items-center gap-2">
+          <span className="animate-spin" style={{ display: isGeneratingReport ? 'inline-block' : 'none' }}>🔄</span>
+          AI-Powered Gemini Report
+        </h3>
+        <div className="flex gap-4 items-center mb-3 flex-wrap">
+          <button
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport || !chartData.length}
+            className="bg-gradient-to-br from-blue-600 to-cyan-500 text-white px-5 py-2 rounded shadow hover:scale-105 transition-transform duration-200 font-medium text-base"
+          >
+            {isGeneratingReport ? "Generating..." : "Generate AI Report"}
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isPdfGenerating || !report}
+            className="bg-green-600 text-white px-5 py-2 rounded shadow hover:scale-105 transition-transform duration-200 font-medium text-base"
+          >
+            {isPdfGenerating ? "Generating PDF..." : "📥 Download PDF Report"}
+          </button>
+        </div>
+        <div className="whitespace-pre-line text-gray-900 text-base font-mono mt-4" style={{
+          opacity: report ? 1 : 0.6,
+          minHeight: 100,
+          transition: 'opacity 0.6s',
+          animation: report ? 'slide-fade-down 1.5s cubic-bezier(.8,0,.37,1) 1' : 'none'
+        }}>
+          {report || <span className="text-gray-500 italic">Click "Generate AI Report" to get a natural language assessment of this lake's water trends.</span>}
+        </div>
       </div>
+
+      <style>
+        {`
+          @keyframes fadein {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes slide-fade-down {
+            from { opacity: 0; transform: translateY(-30px);}
+            to   { opacity: 1; transform: translateY(0);}
+          }
+        `}
+      </style>
     </div>
   );
 }
