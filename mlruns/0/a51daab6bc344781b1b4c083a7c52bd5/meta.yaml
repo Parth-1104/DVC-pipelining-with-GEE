@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/parthpankajsingh/Desktop/ParthMLCoding/GEEwithMLops/mlruns/0/a51daab6bc344781b1b4c083a7c52bd5/artifacts
+end_time: 1763850739637
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: a51daab6bc344781b1b4c083a7c52bd5
+run_name: evaluation_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763850739626
+status: 3
+tags: []
+user_id: parthpankajsingh

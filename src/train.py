@@ -41,7 +41,10 @@ def load_data(features_file, labels_file):
     missing = [col for col in TARGET_PARAMS if col not in labels_df.columns]
     if missing:
         raise ValueError(f"Missing columns in labels.csv: {missing}")
-    labels_df = labels_df[TARGET_PARAMS]
+    # Clip right here!
+    for param in TARGET_PARAMS:
+        labels_df[param] = np.clip(labels_df[param].values, a_min=0, a_max=None)
+    labels_df = labels_df[TARGET_PARAMS]  # Ensure column order
     X = features_df.values
     y = labels_df.values
     print("features shape:", X.shape)
@@ -102,19 +105,12 @@ def main(config_file='params.yaml'):
         scaler_file
     )
 
-    # Then load processed data for training
+    # Then load processed data for training (now with clipped labels, robust)
     X, y = load_data(os.path.basename(proc_features_file), os.path.basename(proc_labels_file))
-
-
-    # Clip negative Turbidity and Chlorophyll label values to zero
-    # Assuming columns order is [TSS, Turbidity, Chlorophyll]
-    y[:, 1] = np.clip(y[:, 1], a_min=0, a_max=None)  # Turbidity
-    y[:, 2] = np.clip(y[:, 2], a_min=0, a_max=None)  # Chlorophyll
 
     n_samples = len(X)
     seq_len = config['model'].get('seq_len', 5)
     output_dim = config['model'].get('output_dim', y.shape[1])
-
     test_size = config['data']['test_size']
     split_idx = int(n_samples * (1 - test_size))
     if split_idx < seq_len:

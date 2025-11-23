@@ -21,7 +21,7 @@ features_df = features_df.sort_values('date')
 roi = ee.Geometry.Polygon(LAKE_COORDS)
 
 
-custom_start_date = '2019-01-01'   # Set as needed
+custom_start_date = '2010-01-01'   # Set as needed
 custom_end_date = '2025-10-31'     # Set as needed
 start_date = custom_start_date
 end_date = custom_end_date

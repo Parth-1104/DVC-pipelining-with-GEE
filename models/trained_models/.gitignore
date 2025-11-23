@@ -1,1 +1,9 @@
 /new_predictions.csv
+models/
+/evaluation_metrics.pkl
+/predictions.png
+/residuals.png
+/test_predictions.csv
+/scaler.pkl
+/best_model.pt
+/training_history.pkl

@@ -8,9 +8,17 @@ from src.model import HydroTransNet
 from src.fetch_data import fetch_sentinel2_timeseries
 from src.preprocess import preprocess_data
 from datetime import datetime, timedelta
-
-
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # <-- change to specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 model = None
 config = None
 

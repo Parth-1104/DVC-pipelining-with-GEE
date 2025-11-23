@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 import sys
-from src.config import *
+from config import *
 
 
 

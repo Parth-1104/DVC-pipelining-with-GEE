@@ -8,7 +8,7 @@ import os
 import json
 import mlflow
 import dagshub
-from src.config import *
+from config import *
 import dagshub
 
 # Initialize DAGsHub/MLflow
