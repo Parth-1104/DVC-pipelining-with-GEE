@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { 
   Droplets, AlertTriangle, Activity, Map as MapIcon, 
-  Wind, Waves, Sprout, RefreshCw, Leaf, CloudRain, Info
+  Wind, Sprout, RefreshCw, Leaf, CloudRain, Info
 } from 'lucide-react';
 
 // --- Interfaces ---
@@ -35,23 +35,25 @@ interface StatCardProps {
 // --- Helper Components ---
 
 const StatCard = ({ title, value, unit, icon, colorClass, tooltip }: StatCardProps) => (
-  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group relative">
-    <div className="flex items-center justify-between">
-      <div className="overflow-hidden">
-        <p className="text-sm font-medium text-gray-500 flex items-center gap-1">
-          {title}
-          {tooltip && <Info size={14} className="text-gray-400 cursor-help" />}
-        </p>
-        <p className="text-2xl font-bold text-gray-900 mt-2 truncate" title={String(value)}>
-          {value} <span className="text-sm text-gray-500 font-normal">{unit}</span>
-        </p>
-      </div>
-      <div className={`p-3 rounded-full ${colorClass} bg-opacity-10 shrink-0 ml-4`}>
+  <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-white hover:shadow-lg transition-all duration-300 group relative">
+    <div className="flex items-center justify-between mb-4">
+      <div className={`p-4 rounded-full ${colorClass} bg-opacity-10`}>
         {icon}
       </div>
+      {tooltip && <Info size={16} className="text-gray-300 hover:text-gray-500 cursor-help transition-colors" />}
     </div>
+    
+    <div>
+      <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">
+        {title}
+      </p>
+      <p className="text-3xl font-bold text-[#0f2518] truncate" title={String(value)}>
+        {value} <span className="text-sm text-gray-400 font-medium ml-1">{unit}</span>
+      </p>
+    </div>
+
     {tooltip && (
-      <div className="absolute top-full left-0 mt-2 z-10 hidden group-hover:block w-64 p-3 bg-gray-800 text-white text-xs rounded shadow-lg">
+      <div className="absolute top-4 right-8 z-10 hidden group-hover:block w-48 p-3 bg-[#0f2518] text-white text-xs rounded-xl shadow-xl">
         {tooltip}
       </div>
     )}
@@ -66,7 +68,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   };
   
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors[status as keyof typeof colors]}`}>
+    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${colors[status as keyof typeof colors]}`}>
       {status}
     </span>
   );
@@ -74,7 +76,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 // --- Caching Utilities ---
 const CACHE_KEY = 'lakeDataCache';
-const CACHE_EXPIRY_MINUTES = 15; // Cache expiry time in minutes
+const CACHE_EXPIRY_MINUTES = 15;
 
 const saveToCache = (data: LakeData[]) => {
   localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -92,9 +94,9 @@ const getFromCache = (): LakeData[] | null => {
       if (age < CACHE_EXPIRY_MINUTES) {
         return parsed.lakeData;
       }
-      localStorage.removeItem(CACHE_KEY); // Remove expired cache
+      localStorage.removeItem(CACHE_KEY);
     } catch {
-      localStorage.removeItem(CACHE_KEY); // Remove corrupted cache
+      localStorage.removeItem(CACHE_KEY);
     }
   }
   return null;
@@ -120,7 +122,6 @@ export default function HomePage() {
         
         if (response.ok) {
           const data = await response.json();
-          
           let status: 'Good' | 'Warning' | 'Critical' = 'Good';
           if (data["Turbidity NTU"] > 25) status = 'Critical';
           else if (data["Turbidity NTU"] > 15) status = 'Warning';
@@ -152,7 +153,6 @@ export default function HomePage() {
     setLoading(false);
   };
 
-  // On mount, use cached data if available, otherwise fetch
   useEffect(() => {
     const cachedData = getFromCache();
     if (cachedData && cachedData.length) {
@@ -164,18 +164,15 @@ export default function HomePage() {
     }
   }, []);
 
-  // Manual refresh handler to clear cache & refetch
   const handleRefresh = () => {
     localStorage.removeItem(CACHE_KEY);
     fetchAllLakeData();
   };
 
-  // --- Derived Statistics ---
+  // Stats
   const avgTurbidity = lakeData.length ? (lakeData.reduce((acc, curr) => acc + curr.turbidity, 0) / lakeData.length).toFixed(5) : '0.00000';
   const avgNDVI = lakeData.length ? (lakeData.reduce((acc, curr) => acc + curr.ndvi, 0) / lakeData.length).toFixed(5) : '0.00000';
   const avgNDWI = lakeData.length ? (lakeData.reduce((acc, curr) => acc + curr.ndwi, 0) / lakeData.length).toFixed(5) : '0.00000';
-  const criticalCount = lakeData.filter(l => l.status === 'Critical').length;
-
   const worstLakes = [...lakeData].sort((a, b) => b.turbidity - a.turbidity).slice(0, 3);
   
   const statusDistribution = [
@@ -186,22 +183,26 @@ export default function HomePage() {
 
   if (loading && !lakeData.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh]">
-        <Activity className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <h2 className="text-xl font-semibold text-gray-700">Calibrating Satellite Data...</h2>
-        <p className="text-gray-500">Fetching agricultural & water quality metrics</p>
+      <div className="flex flex-col items-center justify-center h-[80vh]">
+        <div className="relative">
+           <div className="w-16 h-16 border-4 border-[#0f2518]/20 border-t-[#84cc16] rounded-full animate-spin"></div>
+           <Leaf className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#0f2518]" size={20} />
+        </div>
+        <h2 className="text-xl font-bold text-[#0f2518] mt-6">Calibrating Satellite Data</h2>
+        <p className="text-gray-500 mt-2">Connecting to Sentinel-2 feed...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
+    <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto">
+      
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Command Center</h1>
-          <p className="mt-2 text-gray-600 flex items-center gap-2">
-            System Status: <span className="text-green-600 font-semibold">Online</span>
+          <h1 className="text-4xl font-bold text-[#0f2518]">Command Center</h1>
+          <p className="mt-2 text-gray-500 flex items-center gap-2">
+            System Status: <span className="text-[#84cc16] font-bold bg-[#0f2518] px-2 py-0.5 rounded text-xs">ONLINE</span>
             <span className="text-gray-300">|</span>
             Last Scan: {lastUpdated?.toLocaleTimeString()}
           </p>
@@ -209,14 +210,14 @@ export default function HomePage() {
         <div className="flex gap-3">
             <button 
                 onClick={handleRefresh}
-                className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-6 py-3 rounded-full hover:bg-gray-50 hover:border-gray-300 transition-all font-medium text-sm shadow-sm"
             >
                 <RefreshCw size={18} />
-                Refresh
+                Refresh Data
             </button>
             <button 
             onClick={() => navigate('/dashboard/map')}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-[#0f2518] text-white px-6 py-3 rounded-full hover:bg-[#84cc16] hover:text-[#0f2518] transition-all font-bold text-sm shadow-lg shadow-[#0f2518]/20"
             >
             <MapIcon size={18} />
             Live Map
@@ -242,87 +243,92 @@ export default function HomePage() {
         <StatCard 
           title="Avg NDVI (Crop)" 
           value={avgNDVI} 
-          tooltip="Assesses plant vigor and biomass"
+          tooltip="Assesses plant vigor"
           icon={<Leaf className="w-6 h-6 text-green-600" />}
           colorClass="bg-green-100 text-green-600"
         />
         <StatCard 
           title="Avg NDWI (Water)" 
           value={avgNDWI} 
-          tooltip="Measures vegetation water content & soil moisture"
+          tooltip="Measures moisture"
           icon={<CloudRain className="w-6 h-6 text-cyan-600" />}
           colorClass="bg-cyan-100 text-cyan-600"
         />
       </div>
 
       {/* Agricultural Intelligence Section */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-8 border border-green-100">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="p-3 bg-green-100 rounded-lg">
-            <Sprout className="w-8 h-8 text-green-700" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-green-900">Agricultural Intelligence</h2>
-            <p className="text-green-700 mt-1">Real-time crop health and irrigation insights</p>
-          </div>
-        </div>
+      <div className="bg-[#0f2518] rounded-[2.5rem] p-8 md:p-10 shadow-xl relative overflow-hidden group text-white">
+        {/* Abstract Background Shapes */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#84cc16] rounded-full blur-[120px] opacity-20 -mr-20 -mt-20 pointer-events-none group-hover:opacity-30 transition-opacity duration-700"></div>
+        
+        <div className="relative z-10 flex flex-col lg:flex-row gap-10">
+            {/* Info Column */}
+            <div className="lg:w-1/3 space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                        <Sprout className="w-8 h-8 text-[#84cc16]" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold">Agri-Intel</h2>
+                        <p className="text-[#84cc16] text-sm font-medium">Real-time Crop & Soil Analysis</p>
+                    </div>
+                </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white/60 p-5 rounded-lg border border-green-100 shadow-sm">
-              <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
-                <Leaf size={16}/> Crop Health (NDVI)
-              </h4>
-              <p className="text-sm text-gray-700 leading-relaxed">
-                NDVI is used to assess overall plant vigor, biomass, and health. It helps farmers detect early signs of crop stress, nutrient deficiencies, or disease. It also supports yield estimation and tracking crop development.
-              </p>
-            </div>
-            
-            <div className="bg-white/60 p-5 rounded-lg border border-blue-100 shadow-sm">
-              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                <Droplets size={16}/> Water Stress (NDWI)
-              </h4>
-              <p className="text-sm text-gray-700 leading-relaxed">
-                NDWI measures vegetation water content and soil moisture, valuable for detecting water stress before visible symptoms. It assists in irrigation management by showing moisture deficits.
-              </p>
+                <div className="space-y-4">
+                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
+                        <h4 className="font-bold text-[#84cc16] mb-2 flex items-center gap-2 text-sm uppercase tracking-wide">
+                            <Leaf size={14}/> Crop Health (NDVI)
+                        </h4>
+                        <p className="text-sm text-gray-300 leading-relaxed">
+                            Detect early signs of crop stress, nutrient deficiencies, or disease before they become visible to the naked eye.
+                        </p>
+                    </div>
+                    
+                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
+                        <h4 className="font-bold text-cyan-400 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide">
+                            <Droplets size={14}/> Water Stress (NDWI)
+                        </h4>
+                        <p className="text-sm text-gray-300 leading-relaxed">
+                            Optimize irrigation by measuring vegetation water content and soil moisture deficits.
+                        </p>
+                    </div>
+                </div>
             </div>
 
-            <div className="p-4 bg-yellow-50/80 rounded-lg border border-yellow-100">
-              <p className="text-xs text-yellow-800 font-medium">
-                <strong>Impact:</strong> Together, these indices enable precision agriculture (variable-rate irrigation, fertilization) to improve resource efficiency and yields.
-              </p>
+            {/* Chart Column */}
+            <div className="lg:w-2/3 bg-white/5 rounded-3xl p-6 border border-white/10 backdrop-blur-sm">
+                <h3 className="font-bold text-white mb-6 flex items-center gap-2">
+                    <Activity size={18} className="text-[#84cc16]" />
+                    Vegetation vs. Moisture Correlation
+                </h3>
+                <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={lakeData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                        <linearGradient id="colorNdvi" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#84cc16" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#84cc16" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorNdwi" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                        </linearGradient>
+                    </defs>
+                    <XAxis dataKey="name" tick={{fontSize: 10, fill: '#9ca3af'}} interval={0} angle={-15} textAnchor="end" height={50} stroke="#4b5563"/>
+                    <YAxis tick={{fontSize: 11, fill: '#9ca3af'}} stroke="#4b5563" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
+                    <Tooltip 
+                        contentStyle={{borderRadius: '16px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
+                        itemStyle={{color: '#fff'}}
+                        formatter={(val: number) => val.toFixed(5)}
+                    />
+                    <Legend verticalAlign="top" height={36}/>
+                    <Area type="monotone" dataKey="ndvi" stroke="#84cc16" fillOpacity={1} fill="url(#colorNdvi)" name="NDVI (Crop)" />
+                    <Area type="monotone" dataKey="ndwi" stroke="#06b6d4" fillOpacity={1} fill="url(#colorNdwi)" name="NDWI (Moisture)" />
+                    </AreaChart>
+                </ResponsiveContainer>
+                </div>
             </div>
-          </div>
-
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-800 mb-4">Vegetation vs. Water Content Analysis</h3>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={lakeData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorNdvi" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorNdwi" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="name" tick={{fontSize: 10}} interval={0} angle={-15} textAnchor="end" height={50}/>
-                  <YAxis tick={{fontSize: 11}} />
-                  <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                  <Tooltip 
-                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                    formatter={(val: number) => val.toFixed(5)}
-                  />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Area type="monotone" dataKey="ndvi" stroke="#22c55e" fillOpacity={1} fill="url(#colorNdvi)" name="NDVI (Vegetation)" />
-                  <Area type="monotone" dataKey="ndwi" stroke="#06b6d4" fillOpacity={1} fill="url(#colorNdwi)" name="NDWI (Moisture)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -330,10 +336,10 @@ export default function HomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Left: Detailed Bar Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold text-gray-900">Turbidity Levels by Water Body</h3>
-            <div className="text-sm text-gray-500">Threshold: 25 NTU (Critical)</div>
+        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-white">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-xl font-bold text-[#0f2518]">Turbidity Analysis</h3>
+            <div className="text-xs font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full uppercase tracking-wide">Threshold: 25 NTU</div>
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -341,18 +347,18 @@ export default function HomePage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis 
                     dataKey="name" 
-                    tick={{fontSize: 11}} 
+                    tick={{fontSize: 11, fill: '#6b7280'}} 
                     interval={0} 
                     angle={-20} 
                     textAnchor="end"
                 />
-                <YAxis label={{ value: 'Turbidity (NTU)', angle: -90, position: 'insideLeft', fontSize: 12 }} />
+                <YAxis label={{ value: 'Turbidity (NTU)', angle: -90, position: 'insideLeft', fontSize: 12, fill: '#6b7280' }} />
                 <Tooltip 
-                  cursor={{fill: '#f9fafb'}}
+                  cursor={{fill: '#F3F0EA'}}
                   formatter={(value: number) => [value.toFixed(5), 'Turbidity']}
-                  contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
                 />
-                <Bar dataKey="turbidity" name="Turbidity" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="turbidity" name="Turbidity" radius={[6, 6, 0, 0]}>
                   {lakeData.map((entry, index) => (
                     <Cell 
                         key={`cell-${index}`} 
@@ -366,9 +372,9 @@ export default function HomePage() {
         </div>
 
         {/* Right: Health Distribution Pie Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col">
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Overall Water Health</h3>
-          <p className="text-sm text-gray-500 mb-6">Based on pollution thresholds</p>
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-white flex flex-col">
+          <h3 className="text-xl font-bold text-[#0f2518] mb-2">Health Distribution</h3>
+          <p className="text-sm text-gray-400 mb-8">Safety across monitored bodies</p>
           
           <div className="flex-1 min-h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -377,51 +383,55 @@ export default function HomePage() {
                   data={statusDistribution}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
+                  innerRadius={70}
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
+                  cornerRadius={6}
                 >
                   {statusDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
+                <Tooltip contentStyle={{borderRadius: '12px', border: 'none'}} />
+                <Legend verticalAlign="bottom" height={36} iconType="circle"/>
               </PieChart>
             </ResponsiveContainer>
           </div>
           
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-             <div className="text-sm text-gray-600">
-                <strong>Insight:</strong> {((lakeData.filter(l => l.status === 'Good').length / lakeData.length || 0) * 100).toFixed(0)}% of water bodies are safe for general use.
+          <div className="mt-6 p-5 bg-[#F3F0EA] rounded-2xl border border-gray-200/50 text-center">
+             <div className="text-3xl font-bold text-[#0f2518] mb-1">
+                {((lakeData.filter(l => l.status === 'Good').length / lakeData.length || 0) * 100).toFixed(0)}%
              </div>
+             <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Safe for Irrigation</div>
           </div>
         </div>
       </div>
 
       {/* Pollution Watchlist */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center gap-2 mb-6">
-              <AlertTriangle className="text-red-500" size={20} />
-              <h3 className="text-lg font-bold text-gray-900">Priority Attention Required</h3>
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-white">
+          <div className="flex items-center gap-3 mb-8">
+              <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-[#0f2518]">Priority Watchlist</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {worstLakes.map((lake, idx) => (
                   <div 
                       key={lake.id} 
                       onClick={() => navigate(`/dashboard/lake/${encodeURIComponent(lake.name.toLowerCase())}`)}
-                      className="flex items-center justify-between p-4 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+                      className="flex items-center justify-between p-5 bg-[#F3F0EA] rounded-2xl cursor-pointer hover:bg-white hover:shadow-md hover:scale-[1.02] transition-all duration-300 border border-transparent hover:border-gray-100"
                   >
                       <div className="flex items-center gap-4">
-                          <span className="font-bold text-red-300 text-xl">#{idx + 1}</span>
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold text-sm">#{idx + 1}</span>
                           <div>
-                              <h4 className="font-semibold text-gray-900">{lake.name}</h4>
-                              <p className="text-xs text-gray-500">{lake.location}</p>
+                              <h4 className="font-bold text-[#0f2518] text-lg">{lake.name}</h4>
+                              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">{lake.location}</p>
                           </div>
                       </div>
                       <div className="text-right">
-                          <span className="block font-bold text-red-700">{lake.turbidity.toFixed(5)} NTU</span>
+                          <span className="block font-bold text-red-600 text-lg mb-1">{lake.turbidity.toFixed(2)}</span>
                           <StatusBadge status="Critical" />
                       </div>
                   </div>
