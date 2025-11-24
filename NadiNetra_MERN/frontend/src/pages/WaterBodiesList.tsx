@@ -131,7 +131,7 @@ export default function WaterBodiesList() {
                       <Wind size={12} /> Turbidity
                    </div>
                    <div className="text-lg font-bold text-[#0f2518]">
-                      {data ? `${data["Turbidity NTU"].toFixed(1)}` : '--'} 
+                      {data ? `${data["Turbidity NTU"].toFixed(9)}` : '--'} 
                       <span className="text-xs font-medium text-gray-400 ml-1">NTU</span>
                    </div>
                 </div>
@@ -142,7 +142,7 @@ export default function WaterBodiesList() {
                       <Activity size={12} /> TSS
                    </div>
                    <div className="text-lg font-bold text-[#0f2518]">
-                      {data ? `${data["TSS mg/L"].toFixed(1)}` : '--'}
+                      {data ? `${data["TSS mg/L"].toFixed(9)}` : '--'}
                       <span className="text-xs font-medium text-gray-400 ml-1">mg/L</span>
                    </div>
                 </div>
@@ -153,7 +153,7 @@ export default function WaterBodiesList() {
                       <Droplets size={12} /> Chl-a
                    </div>
                    <div className="text-lg font-bold text-[#0f2518]">
-                      {data ? `${data["Chlorophyll ug/L"].toFixed(2)}` : '--'}
+                      {data ? `${data["Chlorophyll ug/L"].toFixed(9)}` : '--'}
                       <span className="text-xs font-medium text-gray-400 ml-1">µg/L</span>
                    </div>
                 </div>

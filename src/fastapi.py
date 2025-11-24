@@ -19,6 +19,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from io import BytesIO
 import base64
 from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 
 app = FastAPI()
 app.add_middleware(
@@ -234,182 +235,178 @@ def preprocess_data_inline(df):
 
 @app.post("/generate_pdf_report")
 async def generate_pdf_report(request: PDFReportRequest):
-    """
-    Generate a professional government-grade PDF report with:
-    - Lake overview and metadata
-    - Water quality data table (7 decimal precision)
-    - Statistical summary (min/max/avg)
-    - AI-powered narrative analysis
-    - Recommendations for government action
-    - Export-ready format for agencies
-    """
+    """Generate and return PDF report as file download"""
     
-    # Create BytesIO buffer for PDF
-    pdf_buffer = BytesIO()
-    pdf_filename = f"{request.lake_name.replace(' ', '_')}_WQ_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    
-    # Create PDF document
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
-    story = []
-    
-    # Define styles
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=24,
-        textColor=colors.HexColor('#1e40af'),
-        spaceAfter=0.3*inch,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.HexColor('#1e40af'),
-        spaceAfter=0.2*inch,
-        spaceBefore=0.2*inch,
-        fontName='Helvetica-Bold'
-    )
-    body_style = ParagraphStyle(
-        'CustomBody',
-        parent=styles['BodyText'],
-        fontSize=11,
-        alignment=TA_JUSTIFY,
-        spaceAfter=0.15*inch
-    )
-    
-    # Title
-    story.append(Paragraph("WATER QUALITY MONITORING REPORT", title_style))
-    story.append(Spacer(1, 0.1*inch))
-    
-    # Lake Overview Section
-    story.append(Paragraph("LAKE OVERVIEW", heading_style))
-    overview_data = [
-        ['Lake Name', request.lake_name],
-        ['Location', request.location],
-        ['Area', f"{request.area} hectares"],
-        ['Reporting Period', f"{request.start_date} to {request.end_date}"],
-        ['Report Generated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-    ]
-    overview_table = Table(overview_data, colWidths=[2*inch, 4*inch])
-    overview_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0f2fe')),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-    ]))
-    story.append(overview_table)
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Water Quality Data Table
-    story.append(Paragraph("WATER QUALITY MEASUREMENTS (7 Decimal Precision)", heading_style))
-    
-    table_data = [['Date', 'Turbidity\n(NTU)', 'TSS\n(mg/L)', 'Chlorophyll\n(µg/L)', 'NDVI', 'NDWI']]
-    for row in request.chart_data[-14:]:  # Last 14 records
-        table_data.append([
-            row['date'],
-            f"{row.get('turbidity', 0):.7f}",
-            f"{row.get('tss', 0):.7f}",
-            f"{row.get('chlorophyll', 0):.7f}",
-            f"{row.get('ndvi', 0):.7f}",
-            f"{row.get('ndwi', 0):.7f}"
-        ])
-    
-    data_table = Table(table_data, colWidths=[1.2*inch, 1*inch, 1*inch, 1.2*inch, 0.8*inch, 0.8*inch])
-    data_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f9ff')])
-    ]))
-    story.append(data_table)
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Statistical Summary
-    story.append(Paragraph("STATISTICAL SUMMARY", heading_style))
-    
-    if request.chart_data:
-        turbidity_vals = [x.get('turbidity', 0) for x in request.chart_data]
-        tss_vals = [x.get('tss', 0) for x in request.chart_data]
-        chlorophyll_vals = [x.get('chlorophyll', 0) for x in request.chart_data]
+    try:
+        # Create BytesIO buffer for PDF
+        pdf_buffer = BytesIO()
+        pdf_filename = f"{request.lake_name.replace(' ', '_')}_WQ_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         
-        stats_data = [
-            ['Parameter', 'Min', 'Max', 'Average'],
-            ['Turbidity (NTU)', f"{min(turbidity_vals):.7f}", f"{max(turbidity_vals):.7f}", f"{sum(turbidity_vals)/len(turbidity_vals):.7f}"],
-            ['TSS (mg/L)', f"{min(tss_vals):.7f}", f"{max(tss_vals):.7f}", f"{sum(tss_vals)/len(tss_vals):.7f}"],
-            ['Chlorophyll (µg/L)', f"{min(chlorophyll_vals):.7f}", f"{max(chlorophyll_vals):.7f}", f"{sum(chlorophyll_vals)/len(chlorophyll_vals):.7f}"]
+        # Create PDF document
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+        story = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=0.3*inch,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=0.2*inch,
+            spaceBefore=0.2*inch,
+            fontName='Helvetica-Bold'
+        )
+        body_style = ParagraphStyle(
+            'CustomBody',
+            parent=styles['BodyText'],
+            fontSize=11,
+            alignment=TA_JUSTIFY,
+            spaceAfter=0.15*inch
+        )
+        
+        # Title
+        story.append(Paragraph("WATER QUALITY MONITORING REPORT", title_style))
+        story.append(Spacer(1, 0.1*inch))
+        
+        # Lake Overview Section
+        story.append(Paragraph("LAKE OVERVIEW", heading_style))
+        overview_data = [
+            ['Lake Name', request.lake_name],
+            ['Location', request.location],
+            ['Area', f"{request.area} hectares"],
+            ['Reporting Period', f"{request.start_date} to {request.end_date}"],
+            ['Report Generated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
         ]
-        stats_table = Table(stats_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1.5*inch])
-        stats_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#06b6d4')),
+        overview_table = Table(overview_data, colWidths=[2*inch, 4*inch])
+        overview_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0f2fe')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ]))
+        story.append(overview_table)
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Water Quality Data Table
+        story.append(Paragraph("WATER QUALITY MEASUREMENTS", heading_style))
+        
+        table_data = [['Date', 'Turbidity (NTU)', 'TSS (mg/L)', 'Chlorophyll (µg/L)', 'NDVI', 'NDWI']]
+        for row in request.chart_data[-14:]:
+            table_data.append([
+                row.get('date', 'N/A'),
+                f"{row.get('turbidity', 0):.5f}",
+                f"{row.get('tss', 0):.5f}",
+                f"{row.get('chlorophyll', 0):.5f}",
+                f"{row.get('ndvi', 0):.5f}",
+                f"{row.get('ndwi', 0):.5f}"
+            ])
+        
+        data_table = Table(table_data, colWidths=[1.2*inch, 1*inch, 1*inch, 1.2*inch, 0.8*inch, 0.8*inch])
+        data_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')])
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f9ff')])
         ]))
-        story.append(stats_table)
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Page Break
-    story.append(PageBreak())
-    
-    # AI Analysis & Recommendations
-    story.append(Paragraph("AI-POWERED ANALYSIS & RECOMMENDATIONS", heading_style))
-    story.append(Paragraph(request.ai_report, body_style))
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Government Action Items
-    story.append(Paragraph("RECOMMENDED GOVERNMENT INTERVENTIONS", heading_style))
-    interventions = [
-        "Establish monitoring frequency based on detected anomalies and risk levels.",
-        "Coordinate with agricultural departments for irrigation scheduling and water treatment protocols.",
-        "Implement pollution source tracking and mitigation near upstream industrial/urban areas.",
-        "Conduct quarterly soil and water testing to validate satellite-derived indices (NDVI, NDWI).",
-        "Set up early warning systems for TSS/Turbidity spikes indicating contamination events.",
-        "Engage local farming communities in data-driven decision-making for crop selection and fertilizer use."
-    ]
-    for i, intervention in enumerate(interventions, 1):
-        story.append(Paragraph(f"<b>{i}.</b> {intervention}", body_style))
-    
-    story.append(Spacer(1, 0.3*inch))
-    
-    # Footer
-    footer_style = ParagraphStyle(
-        'Footer',
-        parent=styles['BodyText'],
-        fontSize=9,
-        textColor=colors.grey,
-        alignment=TA_CENTER
-    )
-    story.append(Paragraph("---", footer_style))
-    story.append(Paragraph(
-        f"This report was generated automatically by the Water Quality AI System. "
-        f"Data accurate as of {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.",
-        footer_style
-    ))
-    story.append(Paragraph("For questions or data validation, contact your water resource management agency.", footer_style))
-    
-    # Build PDF
-    doc.build(story)
-    pdf_buffer.seek(0)
-    
-    # Save to file and return
-    pdf_path = f"reports/{pdf_filename}"
-    os.makedirs("reports", exist_ok=True)
-    with open(pdf_path, 'wb') as f:
-        f.write(pdf_buffer.getvalue())
-    
-    return FileResponse(pdf_path, filename=pdf_filename, media_type='application/pdf')
+        story.append(data_table)
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Statistical Summary
+        story.append(Paragraph("STATISTICAL SUMMARY", heading_style))
+        
+        if request.chart_data:
+            turbidity_vals = [x.get('turbidity', 0) for x in request.chart_data if x.get('turbidity')]
+            tss_vals = [x.get('tss', 0) for x in request.chart_data if x.get('tss')]
+            chlorophyll_vals = [x.get('chlorophyll', 0) for x in request.chart_data if x.get('chlorophyll')]
+            
+            stats_data = [
+                ['Parameter', 'Min', 'Max', 'Average'],
+                ['Turbidity (NTU)', f"{min(turbidity_vals) if turbidity_vals else 0:.5f}", f"{max(turbidity_vals) if turbidity_vals else 0:.5f}", f"{sum(turbidity_vals)/len(turbidity_vals) if turbidity_vals else 0:.5f}"],
+                ['TSS (mg/L)', f"{min(tss_vals) if tss_vals else 0:.5f}", f"{max(tss_vals) if tss_vals else 0:.5f}", f"{sum(tss_vals)/len(tss_vals) if tss_vals else 0:.5f}"],
+                ['Chlorophyll (µg/L)', f"{min(chlorophyll_vals) if chlorophyll_vals else 0:.5f}", f"{max(chlorophyll_vals) if chlorophyll_vals else 0:.5f}", f"{sum(chlorophyll_vals)/len(chlorophyll_vals) if chlorophyll_vals else 0:.5f}"]
+            ]
+            stats_table = Table(stats_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+            stats_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#06b6d4')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')])
+            ]))
+            story.append(stats_table)
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Page Break
+        story.append(PageBreak())
+        
+        # AI Analysis & Recommendations
+        story.append(Paragraph("AI-POWERED ANALYSIS & RECOMMENDATIONS", heading_style))
+        ai_report_cleaned = request.ai_report.replace('<', '&lt;').replace('>', '&gt;')
+        story.append(Paragraph(ai_report_cleaned, body_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Government Action Items
+        story.append(Paragraph("RECOMMENDED GOVERNMENT INTERVENTIONS", heading_style))
+        interventions = [
+            "Establish monitoring frequency based on detected anomalies and risk levels.",
+            "Coordinate with agricultural departments for irrigation scheduling and water treatment protocols.",
+            "Implement pollution source tracking and mitigation near upstream industrial/urban areas.",
+            "Conduct quarterly soil and water testing to validate satellite-derived indices (NDVI, NDWI).",
+            "Set up early warning systems for TSS/Turbidity spikes indicating contamination events.",
+            "Engage local farming communities in data-driven decision-making for crop selection and fertilizer use."
+        ]
+        for i, intervention in enumerate(interventions, 1):
+            story.append(Paragraph(f"<b>{i}.</b> {intervention}", body_style))
+        
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Footer
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['BodyText'],
+            fontSize=9,
+            textColor=colors.grey,
+            alignment=TA_CENTER
+        )
+        story.append(Paragraph("---", footer_style))
+        story.append(Paragraph(
+            f"This report was generated automatically by NadiNetra Water Quality AI System. "
+            f"Data accurate as of {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.",
+            footer_style
+        ))
+        story.append(Paragraph("For questions or data validation, contact your water resource management agency.", footer_style))
+        
+        # Build PDF
+        doc.build(story)
+        pdf_buffer.seek(0)
+        
+        # Return as file download
+        return StreamingResponse(
+            iter([pdf_buffer.getvalue()]),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={pdf_filename}"}
+        )
+        
+    except Exception as e:
+        return {"error": f"PDF generation failed: {str(e)}"}

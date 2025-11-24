@@ -5,7 +5,7 @@ import TimeSpanSelector from '../components/TimeSpanSelector';
 import { subDays, subMonths, subYears, format } from 'date-fns';
 import { Download, AlertCircle, TrendingUp, Sparkles, Leaf } from 'lucide-react';
 
-const DECIMALS = 5;
+const DECIMALS = 9;
 
 const metricConfig = [
   { key: "turbidity", label: "Turbidity", unit: "NTU", color: "text-yellow-700", bgColor: "bg-yellow-50" },
@@ -25,34 +25,29 @@ function getTableRowsToShow(timeSpan) {
   return 14;
 }
 
-// Animated PDF Loader Component - Styled with Brand Colors
+// Animated PDF Loader Component
 const PDFLoader = () => {
   return (
     <div className="fixed inset-0 bg-[#0f2518]/80 backdrop-blur-sm flex items-center justify-center z-[100]">
       <div className="bg-white rounded-[2.5rem] p-12 shadow-2xl max-w-sm mx-4 relative overflow-hidden">
-        {/* Background decorative blob */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#84cc16]/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
 
-        {/* Animated Circles */}
         <div className="flex justify-center mb-8 relative z-10">
           <div className="relative w-24 h-24">
             <div className="absolute inset-0 rounded-full border-4 border-[#F3F0EA] animate-ping" style={{ animationDuration: '1.5s' }}></div>
             <div className="absolute inset-2 rounded-full border-4 border-[#84cc16] animate-spin" style={{ animationDuration: '2s' }}></div>
             <div className="absolute inset-4 rounded-full border-4 border-[#0f2518] animate-pulse"></div>
             
-            {/* Center Icon */}
             <div className="absolute inset-0 flex items-center justify-center">
               <Download className="w-10 h-10 text-[#0f2518] animate-bounce" style={{ animationDuration: '1s' }} />
             </div>
           </div>
         </div>
 
-        {/* Text */}
         <div className="text-center relative z-10">
           <h3 className="text-xl font-bold text-[#0f2518] mb-2">Compiling Report</h3>
           <p className="text-gray-500 text-sm">Analyzing satellite data & generating PDF...</p>
           
-          {/* Progress Bar */}
           <div className="mt-6 w-full bg-[#F3F0EA] rounded-full h-2 overflow-hidden">
             <div 
               className="h-full bg-[#0f2518] rounded-full"
@@ -64,15 +59,15 @@ const PDFLoader = () => {
             ></div>
           </div>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes progress {
-          0% { transform: scaleX(0); }
-          50% { transform: scaleX(0.7); }
-          100% { transform: scaleX(1); }
-        }
-      `}</style>
+        <style>{`
+          @keyframes progress {
+            0% { transform: scaleX(0); }
+            50% { transform: scaleX(0.7); }
+            100% { transform: scaleX(1); }
+          }
+        `}</style>
+      </div>
     </div>
   );
 };
@@ -132,13 +127,13 @@ export default function LakePage() {
           ndwi: item["NDWI"]
         }));
         setChartData(normalizedData);
+        setReport(''); // Clear old report when data changes
         setTimeout(() => setHasAnimated(true), 100);
       })
       .catch((err) => {
-        console.warn("Using mock data due to API error:", err);
-        // Generate robust mock data for visualization if API fails
+        console.warn("API Error, using mock data:", err);
         const mockData = [];
-        let currentDate = startDate;
+        let currentDate = new Date(startDate);
         while (currentDate <= today) {
             mockData.push({
                 date: format(currentDate, 'yyyy-MM-dd'),
@@ -158,29 +153,110 @@ export default function LakePage() {
     return () => { cancelled = true };
   }, [lake, timeSpan]);
 
+  // ✅ FIXED: Call actual backend endpoint
   const handleGenerateReport = async () => {
-    if (!lake || chartData.length === 0) return;
+    if (!lake || chartData.length === 0) {
+      alert('Please wait for data to load.');
+      return;
+    }
+    
     setIsGeneratingReport(true);
     setReport('');
     
-    // Simulate API delay for mock report
-    setTimeout(() => {
-        setReport(`Analysis for ${lake.name}:\n\nOver the last ${timeSpan}, turbidity levels have shown moderate fluctuations, averaging around 18 NTU. The NDVI index indicates healthy vegetation cover along the banks (Avg: 0.65). Chlorophyll levels remain within safe limits, suggesting low algal bloom risk. Recommendation: Continue routine monitoring.`);
-        setIsGeneratingReport(false);
-    }, 2000);
+    const today = new Date();
+    let startDate = new Date();
+    switch (timeSpan) {
+      case '1W': startDate = subDays(today, 7); break;
+      case '1M': startDate = subMonths(today, 1); break;
+      case '6M': startDate = subMonths(today, 6); break;
+      case '1Y': startDate = subYears(today, 1); break;
+      default: startDate = subMonths(today, 1);
+    }
+    
+    const req = {
+      lake_name: lake.name,
+      location: lake.location,
+      area: lake.area,
+      chart_data: chartData,
+      start_date: format(startDate, 'yyyy-MM-dd'),
+      end_date: format(today, 'yyyy-MM-dd')
+    };
+    
+    try {
+      const resp = await fetch('http://127.0.0.1:8000/gemini_report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+      
+      const json = await resp.json();
+      setReport(json.report || json.error || 'No report generated.');
+    } catch (err) {
+      console.error('Report generation error:', err);
+      setReport('Error generating report: ' + err.message);
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
+  // ✅ FIXED: Call actual PDF backend endpoint
   async function handleDownloadPDF() {
-    if (!lake || chartData.length === 0) {
-      alert('Please wait for data to load before generating PDF.');
+    if (!lake || chartData.length === 0 || !report) {
+      alert('Please generate the AI report first before downloading PDF.');
       return;
     }
+    
     setIsPdfGenerating(true);
-    // Simulate PDF generation
-    setTimeout(() => {
-        setIsPdfGenerating(false);
-        alert("PDF Report downloaded successfully (Simulation)");
-    }, 3000);
+
+    const today = new Date();
+    let startDate = new Date();
+    switch (timeSpan) {
+      case '1W': startDate = subDays(today, 7); break;
+      case '1M': startDate = subMonths(today, 1); break;
+      case '6M': startDate = subMonths(today, 6); break;
+      case '1Y': startDate = subYears(today, 1); break;
+      default: startDate = subMonths(today, 1);
+    }
+
+    const req = {
+      lake_name: lake.name,
+      location: lake.location,
+      area: lake.area,
+      chart_data: chartData,
+      start_date: format(startDate, 'yyyy-MM-dd'),
+      end_date: format(today, 'yyyy-MM-dd'),
+      ai_report: report
+    };
+    
+    try {
+      const resp = await fetch('http://127.0.0.1:8000/generate_pdf_report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+
+      if (!resp.ok) {
+        throw new Error(`PDF generation failed: ${resp.statusText}`);
+      }
+
+      // Get the blob and trigger download
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${lake.name}_WQ_Report_${format(today, 'yyyyMMdd')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      alert('PDF downloaded successfully!');
+    } catch (err) {
+      console.error('PDF download error:', err);
+      alert('Error downloading PDF: ' + err.message);
+    } finally {
+      setIsPdfGenerating(false);
+    }
   }
 
   if (!lake) {
@@ -247,7 +323,6 @@ export default function LakePage() {
         }`}>
           {/* Table Header */}
           <div className="bg-[#0f2518] px-8 py-8 relative overflow-hidden">
-            {/* Decor */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#84cc16] rounded-full blur-[80px] opacity-10 -mr-10 -mt-10"></div>
             
             <div className="relative z-10 flex justify-between items-end">
@@ -256,7 +331,7 @@ export default function LakePage() {
                     <TrendingUp className="text-[#84cc16]" size={24} />
                     Water Quality Metrics
                     </h3>
-                    <p className="text-gray-400 text-sm mt-2 font-medium">High-precision sensor data | Most recent entries shown first</p>
+                    <p className="text-gray-400 text-sm mt-2 font-medium">High-precision satellite data | Most recent entries shown first</p>
                 </div>
                 <div className="text-right hidden sm:block">
                     <div className="text-[#84cc16] text-4xl font-bold">{chartData.length}</div>
@@ -292,7 +367,7 @@ export default function LakePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {chartData.slice(-rowsToShow).reverse().map((row, idx) => { // Reversed to show newest first
+                  {chartData.slice(-rowsToShow).reverse().map((row, idx) => {
                     const isCritical = row.turbidity > 25;
                     
                     return (
@@ -336,11 +411,10 @@ export default function LakePage() {
       {/* AI Gemini Report Section */}
       <div className="rounded-[2.5rem] shadow-xl p-8 md:p-10 bg-[#0f2518] border border-[#84cc16]/20 relative overflow-hidden transition-all duration-700 group">
         
-        {/* Glow Effect */}
         <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-[#0f2518] via-[#84cc16] to-[#0f2518] opacity-50 group-hover:opacity-100 transition-opacity"></div>
 
         <h3 className="text-2xl font-bold mb-6 text-white flex items-center gap-3">
-          <Sparkles className={`${isGeneratingReport ? 'animate-spin-slow' : 'text-[#84cc16]'}`} size={24} />
+          <Sparkles className={`${isGeneratingReport ? 'animate-spin' : 'text-[#84cc16]'}`} size={24} />
           AI Intelligence Report
         </h3>
         
@@ -355,7 +429,7 @@ export default function LakePage() {
           
           <button
             onClick={handleDownloadPDF}
-            disabled={isPdfGenerating || !chartData.length}
+            disabled={isPdfGenerating || !report}
             className="bg-white/10 text-white border border-white/20 px-8 py-3 rounded-full hover:bg-white hover:text-[#0f2518] transition-all duration-300 font-bold text-sm uppercase tracking-widest flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Download size={18} />
@@ -363,24 +437,21 @@ export default function LakePage() {
           </button>
         </div>
 
-        <div 
-          className="bg-white/5 rounded-3xl p-8 border border-white/5 min-h-[120px] transition-all duration-500"
-        >
+        <div className="bg-white/5 rounded-3xl p-8 border border-white/5 min-h-[120px] transition-all duration-500">
           {report ? (
             <div className="prose prose-invert max-w-none">
-                <p className="whitespace-pre-line text-gray-300 text-base leading-relaxed font-medium animate-fade-in">
+                <p className="whitespace-pre-line text-gray-300 text-base leading-relaxed font-medium">
                 {report}
                 </p>
             </div>
           ) : (
             <div className="text-gray-500 italic text-center py-4 flex flex-col items-center gap-3">
               <div className="w-12 h-1 bg-white/10 rounded-full"></div>
-              Click "Generate Insights" to get a natural language assessment of water quality trends.
+              Click "Generate Insights" to get AI-powered analysis of water quality trends.
             </div>
           )}
         </div>
       </div>
-
     </div>
   );
 }

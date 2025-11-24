@@ -337,39 +337,44 @@ export default function HomePage() {
         
         {/* Left: Detailed Bar Chart */}
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-white">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-xl font-bold text-[#0f2518]">Turbidity Analysis</h3>
-            <div className="text-xs font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full uppercase tracking-wide">Threshold: 25 NTU</div>
-          </div>
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={lakeData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis 
-                    dataKey="name" 
-                    tick={{fontSize: 11, fill: '#6b7280'}} 
-                    interval={0} 
-                    angle={-20} 
-                    textAnchor="end"
-                />
-                <YAxis label={{ value: 'Turbidity (NTU)', angle: -90, position: 'insideLeft', fontSize: 12, fill: '#6b7280' }} />
-                <Tooltip 
-                  cursor={{fill: '#F3F0EA'}}
-                  formatter={(value: number) => [value.toFixed(5), 'Turbidity']}
-                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                />
-                <Bar dataKey="turbidity" name="Turbidity" radius={[6, 6, 0, 0]}>
-                  {lakeData.map((entry, index) => (
-                    <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.turbidity > 25 ? '#ef4444' : entry.turbidity > 15 ? '#eab308' : '#3b82f6'} 
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+  <div className="flex justify-between items-center mb-8">
+    <h3 className="text-xl font-bold text-[#0f2518]">Turbidity Analysis</h3>
+    <div className="text-xs font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full uppercase tracking-wide">Threshold: 25 NTU</div>
+  </div>
+  <div className="h-[400px] w-full">
+    <ResponsiveContainer width="100%" height="100%" >
+      <BarChart data={lakeData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }} className='p-4'>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+        <XAxis 
+          dataKey="name" 
+          tick={{fontSize: 11, fill: '#6b7280'}} 
+          interval={0} 
+          angle={-20} 
+          textAnchor="end"
+        />
+        <YAxis
+          label={{ value: 'Turbidity (NTU)', angle: -90, position: 'insideLeft', fontSize: 12, fill: '#6b7280' }}
+          domain={['auto', 'auto']}
+          tickFormatter={val => Number(val).toFixed(9)}
+        />
+        <Tooltip
+          cursor={{fill: '#F3F0EA'}}
+          formatter={(value: number) => [value.toFixed(9), 'Turbidity']}
+          contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+        />
+        <Bar dataKey="turbidity" name="Turbidity" radius={[6, 6, 0, 0]}>
+          {lakeData.map((entry, index) => (
+            <Cell 
+                key={`cell-${index}`}
+                fill={entry.turbidity > 25 ? '#ef4444' : entry.turbidity > 15 ? '#eab308' : '#3b82f6'} 
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</div>
+
 
         {/* Right: Health Distribution Pie Chart */}
         <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-white flex flex-col">
@@ -431,7 +436,7 @@ export default function HomePage() {
                           </div>
                       </div>
                       <div className="text-right">
-                          <span className="block font-bold text-red-600 text-lg mb-1">{lake.turbidity.toFixed(2)}</span>
+                          <span className="block font-bold text-red-600 text-lg mb-1">{lake.turbidity.toFixed(9)}</span>
                           <StatusBadge status="Critical" />
                       </div>
                   </div>
