@@ -72,6 +72,34 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+// --- Caching Utilities ---
+const CACHE_KEY = 'lakeDataCache';
+const CACHE_EXPIRY_MINUTES = 15; // Cache expiry time in minutes
+
+const saveToCache = (data: LakeData[]) => {
+  localStorage.setItem(CACHE_KEY, JSON.stringify({
+    timestamp: Date.now(),
+    lakeData: data,
+  }));
+};
+
+const getFromCache = (): LakeData[] | null => {
+  const cache = localStorage.getItem(CACHE_KEY);
+  if (cache) {
+    try {
+      const parsed = JSON.parse(cache);
+      const age = (Date.now() - parsed.timestamp) / 1000 / 60;
+      if (age < CACHE_EXPIRY_MINUTES) {
+        return parsed.lakeData;
+      }
+      localStorage.removeItem(CACHE_KEY); // Remove expired cache
+    } catch {
+      localStorage.removeItem(CACHE_KEY); // Remove corrupted cache
+    }
+  }
+  return null;
+};
+
 // --- Main Component ---
 
 export default function HomePage() {
@@ -117,14 +145,30 @@ export default function HomePage() {
     });
 
     const results = await Promise.all(promises);
-    setLakeData(results.filter((item): item is LakeData => item !== null));
+    const validResults = results.filter((item): item is LakeData => item !== null);
+    setLakeData(validResults);
+    saveToCache(validResults);
     setLastUpdated(new Date());
     setLoading(false);
   };
 
+  // On mount, use cached data if available, otherwise fetch
   useEffect(() => {
-    fetchAllLakeData();
+    const cachedData = getFromCache();
+    if (cachedData && cachedData.length) {
+      setLakeData(cachedData);
+      setLastUpdated(new Date());
+      setLoading(false);
+    } else {
+      fetchAllLakeData();
+    }
   }, []);
+
+  // Manual refresh handler to clear cache & refetch
+  const handleRefresh = () => {
+    localStorage.removeItem(CACHE_KEY);
+    fetchAllLakeData();
+  };
 
   // --- Derived Statistics ---
   const avgTurbidity = lakeData.length ? (lakeData.reduce((acc, curr) => acc + curr.turbidity, 0) / lakeData.length).toFixed(5) : '0.00000';
@@ -164,7 +208,7 @@ export default function HomePage() {
         </div>
         <div className="flex gap-3">
             <button 
-                onClick={fetchAllLakeData}
+                onClick={handleRefresh}
                 className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
             >
                 <RefreshCw size={18} />
@@ -211,7 +255,7 @@ export default function HomePage() {
         />
       </div>
 
-      {/* --- Agricultural Intelligence Section --- */}
+      {/* Agricultural Intelligence Section */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-8 border border-green-100">
         <div className="flex items-start gap-4 mb-6">
           <div className="p-3 bg-green-100 rounded-lg">
@@ -224,34 +268,32 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Context Text */}
           <div className="lg:col-span-1 space-y-4">
-             <div className="bg-white/60 p-5 rounded-lg border border-green-100 shadow-sm">
-                <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
-                  <Leaf size={16}/> Crop Health (NDVI)
-                </h4>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  NDVI is used to assess overall plant vigor, biomass, and health. It helps farmers detect early signs of crop stress, nutrient deficiencies, or disease. It also supports yield estimation and tracking crop development.
-                </p>
-             </div>
-             
-             <div className="bg-white/60 p-5 rounded-lg border border-blue-100 shadow-sm">
-                <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                  <Droplets size={16}/> Water Stress (NDWI)
-                </h4>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  NDWI measures vegetation water content and soil moisture, valuable for detecting water stress before visible symptoms. It assists in irrigation management by showing moisture deficits.
-                </p>
-             </div>
+            <div className="bg-white/60 p-5 rounded-lg border border-green-100 shadow-sm">
+              <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
+                <Leaf size={16}/> Crop Health (NDVI)
+              </h4>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                NDVI is used to assess overall plant vigor, biomass, and health. It helps farmers detect early signs of crop stress, nutrient deficiencies, or disease. It also supports yield estimation and tracking crop development.
+              </p>
+            </div>
+            
+            <div className="bg-white/60 p-5 rounded-lg border border-blue-100 shadow-sm">
+              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                <Droplets size={16}/> Water Stress (NDWI)
+              </h4>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                NDWI measures vegetation water content and soil moisture, valuable for detecting water stress before visible symptoms. It assists in irrigation management by showing moisture deficits.
+              </p>
+            </div>
 
-             <div className="p-4 bg-yellow-50/80 rounded-lg border border-yellow-100">
-                <p className="text-xs text-yellow-800 font-medium">
-                  <strong>Impact:</strong> Together, these indices enable precision agriculture (variable-rate irrigation, fertilization) to improve resource efficiency and yields.
-                </p>
-             </div>
+            <div className="p-4 bg-yellow-50/80 rounded-lg border border-yellow-100">
+              <p className="text-xs text-yellow-800 font-medium">
+                <strong>Impact:</strong> Together, these indices enable precision agriculture (variable-rate irrigation, fertilization) to improve resource efficiency and yields.
+              </p>
+            </div>
           </div>
 
-          {/* Visualization Chart */}
           <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
             <h3 className="font-bold text-gray-800 mb-4">Vegetation vs. Water Content Analysis</h3>
             <div className="h-[300px]">

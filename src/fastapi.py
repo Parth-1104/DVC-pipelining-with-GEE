@@ -137,7 +137,7 @@ class GeminiReportRequest(BaseModel):
 
 @app.post("/gemini_report")
 async def gemini_report(request: GeminiReportRequest):
-    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyDB7nno6S22RVUo0PmrjT9t6UX5HwL4Y-Q')
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyDy728qlqRd_QYTvF7eJhEG0vcheQd7WEw')
     prompt = f"""
     Lake Name: {request.lake_name}
     Location: {request.location}
