@@ -1,37 +1,35 @@
-import React from 'react';
-import { Calendar } from 'lucide-react';
+
 
 interface TimeSpanSelectorProps {
   selectedSpan: string;
   onSpanChange: (span: string) => void;
+  className?: string;
 }
 
-export default function TimeSpanSelector({ selectedSpan, onSpanChange }: TimeSpanSelectorProps) {
-  const timeSpans = [
-    { value: '1W', label: '1 Week' },
-    { value: '1M', label: '1 Month' },
-    { value: '6M', label: '6 Months' },
-    { value: '1Y', label: '1 Year' }
+
+export default function TimeSpanSelector({ selectedSpan, onSpanChange, className = '' } : TimeSpanSelectorProps) {
+  const spans = [
+    { label: '1W', value: '1W' },
+    { label: '1M', value: '1M' },
+    { label: '6M', value: '6M' },
+    { label: '1Y', value: '1Y' },
   ];
 
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <Calendar className="h-5 w-5 text-gray-500" />
-      <div className="flex gap-2">
-        {timeSpans.map(span => (
-          <button
-            key={span.value}
-            onClick={() => onSpanChange(span.value)}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              selectedSpan === span.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {span.label}
-          </button>
-        ))}
-      </div>
+    <div className={`inline-flex bg-white p-1 rounded-full border border-gray-200 shadow-sm ${className}`}>
+      {spans.map((span) => (
+        <button
+          key={span.value}
+          onClick={() => onSpanChange(span.value)}
+          className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
+            selectedSpan === span.value
+              ? 'bg-[#0f2518] text-[#84cc16] shadow-md'
+              : 'text-gray-500 hover:text-[#0f2518] hover:bg-gray-50'
+          }`}
+        >
+          {span.label}
+        </button>
+      ))}
     </div>
   );
 }
