@@ -22,12 +22,12 @@ export default function Sidebar() {
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-500 rounded-full blur-[80px] opacity-10 pointer-events-none -ml-10 -mb-10"></div>
 
         {/* Logo Area */}
-        <div className="flex items-center gap-3 mb-10 px-2 relative z-10">
+        <Link to="/" className="flex items-center gap-3 mb-10 px-2 relative z-10">
           <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10 text-[#84cc16]">
             <Leaf className="h-6 w-6 fill-current" />
           </div>
           <span className="text-2xl font-bold tracking-tight">Nadi Netra</span>
-        </div>
+        </Link>
 
         {/* Menu Items */}
         <div className="space-y-2 flex-1 relative z-10">

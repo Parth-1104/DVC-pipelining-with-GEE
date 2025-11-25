@@ -441,17 +441,20 @@ export default function LakePage() {
           {report ? (
             <div className="prose prose-invert max-w-none">
                 <p className="whitespace-pre-line text-gray-300 text-base leading-relaxed font-medium">
-                {report}
+                {/* FIX: Render the 'full_analysis' string from the structured report object. */}
+                {typeof report === 'object' && report !== null
+                    ? report.full_analysis || 'AI Report structure loaded. Ready for PDF.' 
+                    : report}
                 </p>
             </div>
-          ) : (
-            <div className="text-gray-500 italic text-center py-4 flex flex-col items-center gap-3">
-              <div className="w-12 h-1 bg-white/10 rounded-full"></div>
-              Click "Generate Insights" to get AI-powered analysis of water quality trends.
-            </div>
-          )}
-        </div>
-      </div>
+            ) : (
+                <div className="text-gray-500 italic text-center py-4 flex flex-col items-center gap-3">
+                    <div className="w-12 h-1 bg-white/10 rounded-full"></div>
+                    Click "Generate Insights" to get AI-powered analysis of water quality trends.
+                </div>
+            )} {/* <-- Conditional rendering block is closed here */}
+        </div> {/* <-- This closes the 'bg-white/5' div */}
+      </div> {/* <-- This closes the 'AI Gemini Report Section' div */}
     </div>
   );
 }

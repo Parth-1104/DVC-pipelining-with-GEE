@@ -186,15 +186,22 @@ const LandingPage = () => {
 
           <div className="flex flex-col md:flex-row gap-6 items-end">
             <div className="bg-[#F3F0EA] p-6 rounded-[2.5rem] flex-1 flex flex-col md:flex-row items-center relative group min-h-[300px]">
-              <div className="w-full md:w-1/2 h-48 md:h-full flex items-center justify-center">
-                <img src="/sentinal2.jpeg" alt="Sentinal 2" className="object-contain w-full h-full drop-shadow-xl rounded-lg" />
-              </div>
+            <div className="w-full md:w-1/2 h-58 md:h-full flex items-center justify-center">
+  <video 
+    src="/videoplayback.mp4"
+    className="object-cover w-full h-full drop-shadow-xl rounded-lg"
+    autoPlay
+    loop
+    muted
+  />
+</div>
+
               <div className="w-full md:w-1/2 pl-4 flex flex-col justify-center">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Sentinal 2</h3>
                 <p className="text-gray-600 text-sm mb-6 leading-relaxed">
                   Sentinel-2 satellite provides high-resolution, multispectral imagery used to monitor water quality parameters.
                 </p>
-                <a href="https://livingatlas.arcgis.com/sentinel2explorer" target="_blank" className="px-6 py-2 border border-gray-800 rounded-full text-sm font-semibold bg-gray-800 hover:text-white transition self-start">
+                <a href="https://livingatlas.arcgis.com/sentinel2explorer" target="_blank" className="px-6 py-2 border border-gray-800 rounded-full text-sm text-white font-semibold bg-gray-800 hover:text-white transition self-start">
                   VIEW DETAILS
                 </a>
               </div>
