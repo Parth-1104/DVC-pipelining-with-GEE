@@ -1,6 +1,9 @@
 data/
 !data/.gitignore
 
+models/
+trained_models/
+mlruns/
 
 .env
 
